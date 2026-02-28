@@ -165,19 +165,6 @@ python3 scripts/check_quota.py --login <provider>
 
 ---
 
-#### 🔷 SiliconFlow
-
-| Field | Value |
-|---|---|
-| **Dashboard** | `https://cloud.siliconflow.cn/account/ak` |
-| **Login** | `cloud.siliconflow.cn/account/login` |
-| **Data found** | API keys, balance/credits |
-| **API fallback** | ❌ |
-
-**Note**: Free tier for BAAI/bge-m3 embedding + reranker. Used for OpenClaw memory system.
-
----
-
 ## Adding New Providers
 
 ### Interactive Setup

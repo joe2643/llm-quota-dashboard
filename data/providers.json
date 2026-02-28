@@ -55,15 +55,6 @@
       "enabled": true,
       "notes": "Plus High-Speed. 300 prompts/5h, ~100 TPS. M2.5-highspeed."
     },
-    "siliconflow": {
-      "name": "SiliconFlow",
-      "dashboard_url": "https://cloud.siliconflow.cn/account/ak",
-      "login_url": "https://cloud.siliconflow.cn/account/login",
-      "steps": "Navigate → screenshot",
-      "color": "🔷",
-      "enabled": true,
-      "notes": "Free tier BAAI/bge-m3 embedding. Used for OpenClaw memory."
-    },
     "deepseek": {
       "name": "DeepSeek",
       "dashboard_url": "https://platform.deepseek.com/usage",
