@@ -232,18 +232,73 @@ python3 scripts/check_quota.py --login all       # Login all providers
 
 ---
 
-## Using OpenClaw Browser (Alternative)
+## CDP Scraper (Recommended)
 
-Instead of Playwright's separate browser profile, you can use the OpenClaw-managed Chrome browser which may already have your sessions logged in:
+The **primary scraper** (`scripts/scrape_dashboards.py`) connects directly to Chrome via CDP (Chrome DevTools Protocol) — no Playwright needed. This is faster, lighter, and reuses your existing logged-in sessions.
 
-1. **OpenClaw browser profile**: `~/.openclaw/browser/openclaw/user-data`
-2. **Playwright profile**: `~/.llm-quota-browser/`
+### How It Works
 
-These are **separate** browser profiles. To share sessions, you could:
-- Copy cookies from OpenClaw profile to Playwright profile
-- Or modify `check_quota.py` to use CDP connection to OpenClaw's Chrome
+1. Connects to Chrome's CDP WebSocket (port 18800)
+2. Attaches to a single existing tab
+3. Navigates to each provider sequentially (same tab)
+4. Waits for data keywords to appear (polling, not blind timeout)
+5. Extracts page text via `Runtime.evaluate`
+6. Parses with provider-specific regex
+7. Returns to `about:blank` when done
 
-For now, the simplest approach: run `--login all` once per provider in the Playwright browser.
+### Key Technical Details
+
+- **WebSocket origin bypass**: Chrome blocks WS connections by default. Use `suppress_origin=True` in websocket-client
+- **Browser-level WS + Target.attachToTarget**: Connect to browser WS (from `/json/version`), not per-tab WS (which gets 403)
+- **Z.AI**: Navigate to subscription → poll-click `[role=tab]:text("Usage")` → wait for "Hours Quota"
+- **DashScope popover**: CDP `Input.dispatchMouseEvent` (`mouseMoved`) on the data cell (TD, not TH header) triggers Ant Design Popover. Must move mouse away first (0,0) then to target
+- **Kimi**: Shows `-` instead of `%` when quota just reset → treat as 0% used
+- **Wait-for-data pattern**: Each provider defines keywords to poll for. Script waits until keywords appear in `document.body.innerText`, with per-provider timeout
+
+### Setup for New Agent
+
+```bash
+# Prerequisites
+pip install websocket-client
+
+# Ensure OpenClaw browser is running with CDP
+openclaw browser start  # or check status
+
+# Verify CDP is accessible
+curl -s http://127.0.0.1:18800/json/version | python3 -c "import json,sys; print(json.load(sys.stdin)['webSocketDebuggerUrl'])"
+
+# Run scraper
+python3 scripts/scrape_dashboards.py           # All 5 providers
+python3 scripts/scrape_dashboards.py -p zai     # Single provider
+python3 scripts/scrape_dashboards.py --debug    # Show extracted text
+python3 scripts/scrape_dashboards.py --json     # JSON output
+
+# Results saved to data/quota_data.json
+```
+
+### Adding a New Provider to the Scraper
+
+1. Add a `scrape_<name>(cdp: CDPSession)` function
+2. Navigate to the dashboard URL
+3. Wait for data keywords: `cdp.wait_for_text(["keyword1", "keyword2"], timeout=15)`
+4. Extract text: `text = cdp.get_text()`
+5. Parse with regex
+6. Register in `PROVIDERS` dict
+7. Add format logic in `format_provider()`
+
+### Common Issues
+
+| Issue | Solution |
+|---|---|
+| 403 on WebSocket | Use `suppress_origin=True` when connecting |
+| Empty text / timeout | Provider not logged in — login via OpenClaw browser |
+| Popover not mounting | Use CDP `Input.dispatchMouseEvent` on data cell, not header |
+| Same-URL navigation doesn't reload | CDP `Page.navigate` to same URL is a no-op; script uses `Page.reload` |
+| `content` empty from Z.AI | glm-5 has thinking mode enabled by default; pass `thinking: {type: "disabled"}` |
+
+## Playwright Browser (Legacy/Fallback)
+
+The legacy scraper (`scripts/check_quota.py`) uses Playwright with a separate browser profile at `~/.llm-quota-browser/`. Login once per provider with `--login <key>`. This approach is heavier and requires separate login sessions.
 
 ---
 
