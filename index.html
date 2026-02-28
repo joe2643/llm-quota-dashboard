@@ -617,24 +617,10 @@
     let quotaData = {};
 
     // ═══ INIT ═══
-    // Supports both Flask API (local) and static JSON (GitHub Pages)
-    async function fetchJSON(apiPath, staticPath) {
-      try {
-        const r = await fetch(apiPath);
-        if (r.ok) return await r.json();
-      } catch (_) {}
-      // Fallback to static file (GitHub Pages)
-      try {
-        const r = await fetch(staticPath);
-        if (r.ok) return await r.json();
-      } catch (_) {}
-      return {};
-    }
-
     async function init() {
       const [providers, data] = await Promise.all([
-        fetchJSON('/api/providers', 'data/providers.json'),
-        fetchJSON('/api/data', 'data/quota_data.json'),
+        fetch('/api/providers').then(r => r.json()).catch(() => ({})),
+        fetch('/api/data').then(r => r.json()).catch(() => ({})),
       ]);
       providerMeta = providers;
       quotaData = data;
