@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "version": 2,
+    "description": "LLM provider configs. Edit or use 'check_quota.py --add'. Scraper: scrape_dashboards.py (CDP).",
+    "fields": {
+      "name": "Display name",
+      "dashboard_url": "Primary URL to scrape",
+      "steps": "Human-readable scraping steps",
+      "color": "Emoji for display",
+      "enabled": "Whether to check"
+    }
+  },
+  "providers": {
+    "zai": {
+      "name": "Z.AI",
+      "dashboard_url": "https://z.ai/manage-apikey/subscription",
+      "steps": "Navigate → click Usage tab → screenshot",
+      "api_url": "https://api.z.ai/api/monitor/usage/quota/limit",
+      "env_var": "ZAI_API_KEY",
+      "color": "🔵",
+      "enabled": true,
+      "notes": "Coding Plan. Shows 5h/weekly/monthly quota %, token usage chart"
+    },
+    "dashscope": {
+      "name": "DashScope (Alibaba)",
+      "dashboard_url": "https://modelstudio.console.alibabacloud.com/ap-southeast-1/?tab=dashboard#/efm/coding_plan",
+      "steps": "Navigate → hover '套餐用量' box → screenshot",
+      "api_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models",
+      "env_var": "DASHSCOPE_API_KEY",
+      "color": "🟠",
+      "enabled": true,
+      "notes": "Coding Plan Pro. $50/month. Shows weekly usage %, remaining days"
+    },
+    "anthropic": {
+      "name": "Anthropic",
+      "dashboard_url": "https://claude.ai/settings/usage",
+      "steps": "Navigate → screenshot (no interaction needed)",
+      "color": "🟤",
+      "enabled": true,
+      "notes": "Shows session/weekly/extra usage %, spend vs limit, balance, reset times"
+    },
+    "kimi": {
+      "name": "Kimi (Moonshot)",
+      "dashboard_url": "https://www.kimi.com/code/console?from=kfc_overview_topbar",
+      "steps": "Navigate → screenshot (no interaction needed). Page loads slowly.",
+      "color": "🟣",
+      "enabled": true,
+      "notes": "K2.5 Allegretto. Weekly + rate limit usage %"
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "dashboard_url": "https://platform.minimax.io/user-center/payment/coding-plan",
+      "steps": "Navigate → screenshot (no interaction needed). No weekly limit.",
+      "color": "🟢",
+      "enabled": true,
+      "notes": "Plus High-Speed. 300 prompts/5h, ~100 TPS. M2.5-highspeed."
+    },
+    "siliconflow": {
+      "name": "SiliconFlow",
+      "dashboard_url": "https://cloud.siliconflow.cn/account/ak",
+      "login_url": "https://cloud.siliconflow.cn/account/login",
+      "steps": "Navigate → screenshot",
+      "color": "🔷",
+      "enabled": true,
+      "notes": "Free tier BAAI/bge-m3 embedding. Used for OpenClaw memory."
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "dashboard_url": "https://platform.deepseek.com/usage",
+      "login_url": "https://platform.deepseek.com/sign_in",
+      "color": "🟦",
+      "enabled": false,
+      "notes": "Added from template, not yet configured"
+    }
+  }
+}

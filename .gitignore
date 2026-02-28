@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.bak
+output/
+screenshots/
+~/.llm-quota-browser/

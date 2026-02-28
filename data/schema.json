@@ -1,0 +1,132 @@
+# LLM Quota Data Model
+
+## Schema Definition
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LLM Quota Data",
+  "type": "object",
+  "properties": {
+    "zai": { "$ref": "#/definitions/provider_quota" },
+    "dashscope": { "$ref": "#/definitions/provider_quota" },
+    "kimi": { "$ref": "#/definitions/provider_quota" },
+    "minimax": { "$ref": "#/definitions/provider_quota" },
+    "anthropic": { "$ref": "#/definitions/provider_quota" }
+  },
+  "definitions": {
+    "provider_quota": {
+      "type": "object",
+      "properties": {
+        "quota_percent": {
+          "type": ["number", "null"],
+          "description": "Remaining quota percentage (0-100)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "usage_percent": {
+          "type": ["number", "null"],
+          "description": "Used quota percentage (0-100)"
+        },
+        "tokens_used": {
+          "type": ["number", "null"],
+          "description": "Number of tokens used"
+        },
+        "tokens_limit": {
+          "type": ["number", "null"],
+          "description": "Total token limit"
+        },
+        "amount_used": {
+          "type": ["number", "null"],
+          "description": "Amount used (for billing-based providers)"
+        },
+        "amount_limit": {
+          "type": ["number", "null"],
+          "description": "Total amount limit"
+        },
+        "currency": {
+          "type": ["string", "null"],
+          "description": "Currency code (e.g., CNY, USD)"
+        },
+        "remaining_requests": {
+          "type": ["number", "null"],
+          "description": "Remaining API requests"
+        },
+        "remaining_tokens": {
+          "type": ["number", "null"],
+          "description": "Remaining tokens (for rate-limited APIs)"
+        },
+        "reset_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when quota resets"
+        },
+        "last_checked": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last check"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "error", "api_accessible", "cached"],
+          "description": "Check status"
+        },
+        "message": {
+          "type": ["string", "null"],
+          "description": "Error message or additional info"
+        },
+        "screenshot": {
+          "type": ["string", "null"],
+          "description": "Path to dashboard screenshot (for browser checks)"
+        },
+        "dashboard_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "URL to provider's dashboard"
+        }
+      },
+      "required": ["status", "last_checked"]
+    }
+  }
+}
+```
+
+## Cache Policy
+
+- **TTL**: 1 hour (3600 seconds)
+- **Invalidation**: Manual refresh via API endpoint
+- **Storage**: `data/quota_data.json`
+- **Format**: JSON with UTF-8 encoding
+
+## Alert Thresholds
+
+- **Critical**: < 10% remaining (immediate alert)
+- **Warning**: < 20% remaining (notify on next check)
+- **Info**: < 50% remaining (log only)
+
+## Provider-Specific Notes
+
+### Z.AI
+- Uses 5-hour token cycle + 6-hour cycle
+- Returns `percentage` as usage (not remaining)
+- Endpoint: `/api/monitor/usage/quota/limit`
+
+### DashScope
+- No direct quota API
+- Usage tracked via `usage` field in API responses
+- Console scraping may be needed for exact quota
+
+### Kimi
+- Browser-only access
+- Dashboard: `platform.moonshot.cn/dashboard/usage`
+- Free tier: 1.5M tokens/day
+
+### MiniMax
+- Rate limits: RPM + TPM
+- Dashboard: `platform.minimaxi.com/dashboard`
+- Check usage in Dashboard → Costs
+
+### Anthropic
+- Rate limits via response headers
+- 5-hour reset + weekly limits
+- Headers: `x-ratelimit-remaining-*`

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Quota Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ═══ RESET & BASE ═══ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #E0E5EC;
+      --fg: #3D4852;
+      --muted: #6B7280;
+      --accent: #6C63FF;
+      --accent-light: #8B84FF;
+      --accent-secondary: #38B2AC;
+      --shadow-dark: rgb(163, 177, 198, 0.6);
+      --shadow-dark-strong: rgb(163, 177, 198, 0.7);
+      --shadow-light: rgba(255, 255, 255, 0.5);
+      --shadow-light-strong: rgba(255, 255, 255, 0.6);
+      --radius-card: 32px;
+      --radius-btn: 16px;
+      --radius-inner: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .font-display {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    /* ═══ SHADOWS ═══ */
+    .neu-extruded {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light);
+    }
+    .neu-extruded-hover {
+      box-shadow: 12px 12px 20px var(--shadow-dark-strong), -12px -12px 20px var(--shadow-light-strong);
+    }
+    .neu-extruded-sm {
+      box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
+    }
+    .neu-inset {
+      box-shadow: inset 6px 6px 10px var(--shadow-dark), inset -6px -6px 10px var(--shadow-light);
+    }
+    .neu-inset-deep {
+      box-shadow: inset 10px 10px 20px var(--shadow-dark-strong), inset -10px -10px 20px var(--shadow-light-strong);
+    }
+    .neu-inset-sm {
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    /* ═══ LAYOUT ═══ */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ═══ HEADER ═══ */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(224, 229, 236, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 20px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-inner);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .logo h1 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      color: var(--fg);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .last-updated {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ═══ BUTTONS ═══ */
+    .btn {
+      border: none;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      border-radius: var(--radius-btn);
+      padding: 12px 24px;
+      background: var(--bg);
+      color: var(--fg);
+      transition: all 300ms ease-out;
+      outline: none;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0.5px);
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-light);
+      box-shadow: 8px 8px 16px var(--shadow-dark-strong), -8px -8px 16px var(--shadow-light-strong);
+    }
+
+    .btn-primary:active {
+      box-shadow: inset 3px 3px 8px rgba(0,0,0,0.2), inset -3px -3px 8px rgba(255,255,255,0.1);
+    }
+
+    .btn-icon {
+      padding: 12px;
+      width: 48px;
+      height: 48px;
+      justify-content: center;
+      border-radius: var(--radius-inner);
+    }
+
+    .btn.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .btn.loading .btn-spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ═══ SUMMARY SECTION ═══ */
+    .summary-section {
+      padding: 40px 0 24px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+    }
+
+    .summary-card {
+      background: var(--bg);
+      border-radius: var(--radius-card);
+      padding: 28px;
+      transition: all 300ms ease-out;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .summary-card .label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-card .value {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: 42px;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .summary-card .icon-well {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    /* ═══ PROVIDERS SECTION ═══ */
+    .providers-section {
+      padding: 24px 0 60px;
+    }
+
+    .section-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: -0.3px;
+      color: var(--fg);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .provider-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+
+    .provider-card {
+      background: var(--bg);
+      border-radius: var(--radius-card);
+      padding: 32px;
+      transition: all 300ms ease-out;
+    }
+
+    .provider-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .provider-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .provider-name {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .provider-emoji-well {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-inner);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .provider-name h3 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.3px;
+    }
+
+    .method-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      color: var(--muted);
+    }
+
+    .method-badge.browser { color: var(--accent-secondary); }
+    .method-badge.api { color: var(--accent); }
+
+    /* ─── Status Indicator ─── */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .status-dot.success { background: var(--accent-secondary); box-shadow: 0 0 8px rgba(56,178,172,0.4); }
+    .status-dot.warning { background: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+    .status-dot.error { background: #EF4444; box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+    .status-dot.login { background: var(--accent); box-shadow: 0 0 8px rgba(108,99,255,0.4); }
+
+    /* ─── Quota Bar ─── */
+    .quota-section {
+      margin: 16px 0;
+    }
+
+    .quota-bar-track {
+      height: 14px;
+      border-radius: 9999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .quota-bar-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 600ms ease-out;
+      position: relative;
+    }
+
+    .quota-bar-fill.good {
+      background: linear-gradient(90deg, var(--accent-secondary), #4FD1C5);
+    }
+    .quota-bar-fill.warning {
+      background: linear-gradient(90deg, #F59E0B, #FBBF24);
+    }
+    .quota-bar-fill.critical {
+      background: linear-gradient(90deg, #EF4444, #F87171);
+    }
+
+    .quota-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .quota-percent {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .quota-sub {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ─── Hints ─── */
+    .hints-well {
+      border-radius: var(--radius-btn);
+      padding: 16px 20px;
+      margin-top: 16px;
+    }
+
+    .hint-item {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 4px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .hint-item::before {
+      content: '›';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ─── Screenshot Thumb ─── */
+    .screenshot-thumb {
+      margin-top: 16px;
+      border-radius: var(--radius-btn);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 300ms ease-out;
+    }
+
+    .screenshot-thumb:hover {
+      transform: scale(1.02);
+    }
+
+    .screenshot-thumb img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+      filter: contrast(0.95) brightness(1.02);
+    }
+
+    /* ─── Need Login Card ─── */
+    .need-login-msg {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      border-radius: var(--radius-btn);
+      margin-top: 8px;
+    }
+
+    .need-login-msg code {
+      font-size: 12px;
+      background: rgba(108, 99, 255, 0.08);
+      padding: 4px 10px;
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      word-break: break-all;
+    }
+
+    /* ═══ MODAL (Screenshot Lightbox) ═══ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      cursor: pointer;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      max-width: 90vw;
+      max-height: 85vh;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+    }
+
+    .modal-content img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ═══ TOAST ═══ */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      padding: 16px 28px;
+      border-radius: var(--radius-btn);
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 300ms ease-out;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success { color: var(--accent-secondary); }
+    .toast.error { color: #EF4444; }
+
+    /* ═══ EMPTY STATE ═══ */
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    .empty-state h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .empty-state p {
+      color: var(--muted);
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ═══ ANIMATIONS ═══ */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .float { animation: float 3s ease-in-out infinite; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 500ms ease-out forwards;
+    }
+
+    .provider-card { opacity: 0; }
+    .provider-card.loaded { animation: fadeIn 500ms ease-out forwards; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="container header-inner">
+      <div class="logo">
+        <div class="logo-icon neu-inset-deep">📊</div>
+        <h1 class="font-display">LLM Quota</h1>
+      </div>
+      <div class="header-actions">
+        <span class="last-updated" id="lastUpdated">—</span>
+        <button class="btn neu-extruded-sm btn-icon" id="refreshBtn" title="Refresh" onclick="refreshData()">
+          <span id="refreshIcon">⟳</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- SUMMARY -->
+  <section class="summary-section">
+    <div class="container">
+      <div class="summary-grid" id="summaryGrid">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- PROVIDERS -->
+  <section class="providers-section">
+    <div class="container">
+      <div class="section-title">
+        <span>Providers</span>
+      </div>
+      <div class="provider-grid" id="providerGrid">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENSHOT MODAL -->
+  <div class="modal-overlay" id="modal" onclick="closeModal()">
+    <div class="modal-content neu-extruded" onclick="event.stopPropagation()">
+      <img id="modalImg" src="" alt="Screenshot">
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast neu-extruded" id="toast"></div>
+
+  <script>
+    let providerMeta = {};
+    let quotaData = {};
+
+    // ═══ INIT ═══
+    async function init() {
+      const [providers, data] = await Promise.all([
+        fetch('/api/providers').then(r => r.json()).catch(() => ({})),
+        fetch('/api/data').then(r => r.json()).catch(() => ({})),
+      ]);
+      providerMeta = providers;
+      quotaData = data;
+      render();
+    }
+
+    // ═══ RENDER ═══
+    function render() {
+      renderSummary();
+      renderProviders();
+      renderLastUpdated();
+    }
+
+    function renderLastUpdated() {
+      const ts = quotaData.last_updated;
+      const el = document.getElementById('lastUpdated');
+      if (!ts) { el.textContent = 'Never checked'; return; }
+      try {
+        const d = new Date(ts);
+        el.textContent = d.toLocaleString('en-HK', { 
+          month: 'short', day: 'numeric', 
+          hour: '2-digit', minute: '2-digit',
+          hour12: false 
+        });
+      } catch { el.textContent = ts; }
+    }
+
+    function renderSummary() {
+      const counts = { success: 0, warning: 0, error: 0, login: 0 };
+      
+      for (const [key, config] of Object.entries(providerMeta)) {
+        if (!config.enabled) continue;
+        const d = quotaData[key];
+        if (!d) { counts.error++; continue; }
+        
+        const status = d.status;
+        if (status === 'need_login') { counts.login++; continue; }
+        if (status !== 'success') { counts.error++; continue; }
+        
+        // Check if any quota is low (using structured data)
+        const sd = d.data || {};
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct'];
+        const hasWarning = pctFields.some(f => sd[f] != null && (100 - sd[f]) < 20);
+        
+        // Also check old format
+        const pct = getQuotaPercent(d);
+        if (hasWarning || (pct !== null && pct < 20)) { counts.warning++; }
+        else { counts.success++; }
+      }
+
+      const cards = [
+        { label: 'Normal', value: counts.success, color: 'var(--accent-secondary)', icon: '✓' },
+        { label: 'Warning', value: counts.warning, color: '#F59E0B', icon: '⚡' },
+        { label: 'Error', value: counts.error, color: '#EF4444', icon: '✕' },
+        { label: 'Login', value: counts.login, color: 'var(--accent)', icon: '🔑' },
+      ];
+
+      document.getElementById('summaryGrid').innerHTML = cards.map(c => `
+        <div class="summary-card neu-extruded fade-in">
+          <div class="label">
+            <div class="icon-well neu-inset" style="color: ${c.color}">${c.icon}</div>
+            ${c.label}
+          </div>
+          <div class="value" style="color: ${c.color}">${c.value}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderProviders() {
+      const grid = document.getElementById('providerGrid');
+      const keys = Object.keys(providerMeta).filter(k => providerMeta[k].enabled !== false);
+      
+      if (!keys.length) {
+        grid.innerHTML = `
+          <div class="empty-state neu-extruded" style="grid-column: 1/-1; border-radius: var(--radius-card);">
+            <div class="icon">🔧</div>
+            <h2 class="font-display">No Providers</h2>
+            <p>Run <code>python check_quota.py --setup</code> to add LLM providers.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = keys.map((key, i) => {
+        const config = providerMeta[key];
+        const data = quotaData[key] || {};
+        return renderProviderCard(key, config, data, i);
+      }).join('');
+
+      // Stagger fade-in
+      grid.querySelectorAll('.provider-card').forEach((card, i) => {
+        setTimeout(() => card.classList.add('loaded'), i * 80);
+      });
+    }
+
+    function renderProviderCard(key, config, data, index) {
+      const status = data.status || 'unknown';
+      const method = data.method || '';
+      const name = config.name || key;
+      const emoji = config.color || '•';
+      const d = data.data || {};  // Structured data from DOM scraper
+      
+      let statusDotClass = 'error';
+      if (status === 'success') statusDotClass = 'success';
+      else if (status === 'need_login') statusDotClass = 'login';
+
+      let bodyHtml = '';
+
+      if (status === 'success') {
+        // Plan name
+        if (d.plan) {
+          bodyHtml += `<div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">${escHtml(d.plan)}${d.tier ? ' · ' + escHtml(d.tier) : ''}</div>`;
+        } else if (d.tier) {
+          bodyHtml += `<div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">🎵 ${escHtml(d.tier)}${d.model ? ' · ' + d.model : ''}</div>`;
+        }
+        
+        // Quota bars — render all percentage fields
+        const quotaFields = [
+          ['session_used_pct', 'Session', d.session_reset],
+          ['5h_quota_used_pct', '5h Quota', null],
+          ['weekly_used_pct', 'Weekly', d.weekly_reset],
+          ['weekly_all_used_pct', 'Weekly (all)', d.weekly_all_reset],
+          ['weekly_sonnet_used_pct', 'Sonnet', d.weekly_sonnet_reset],
+          ['weekly_quota_used_pct', 'Weekly', d.weekly_reset],
+          ['rate_limit_used_pct', 'Rate Limit', null],
+          ['monthly_search_used_pct', 'Search', d.monthly_search_reset],
+          ['current_used_pct', 'Current', d.reset_in],
+          ['extra_used_pct', 'Extra', d.extra_reset],
+        ];
+        
+        let hasBar = false;
+        for (const [field, label, resetInfo] of quotaFields) {
+          const usedPct = d[field];
+          if (usedPct == null) continue;
+          hasBar = true;
+          
+          const remaining = 100 - usedPct;
+          const barClass = remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
+          const color = remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
+          
+          bodyHtml += `
+            <div class="quota-section" style="margin: 8px 0;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <div>
+                  <span class="quota-percent" style="color: ${color}; font-size: 24px;">${remaining}%</span>
+                  <span style="font-size: 12px; color: var(--muted); margin-left: 4px;">${label}</span>
+                </div>
+                ${resetInfo ? `<span style="font-size: 11px; color: var(--muted);">${escHtml(String(resetInfo))}</span>` : ''}
+              </div>
+              <div class="quota-bar-track neu-inset-sm" style="margin-top: 6px; height: 10px;">
+                <div class="quota-bar-fill ${barClass}" style="width: ${usedPct}%;"></div>
+              </div>
+            </div>
+          `;
+        }
+        
+        // Money section
+        if (d.extra_spent_usd != null || d.balance_usd != null || d.price_usd_month != null) {
+          bodyHtml += `<div class="hints-well neu-inset-sm" style="margin-top: 12px;">`;
+          if (d.extra_spent_usd != null && d.monthly_limit_usd != null) {
+            bodyHtml += `<div class="hint-item">💰 $${d.extra_spent_usd.toFixed(2)} / $${d.monthly_limit_usd.toFixed(0)} spent</div>`;
+          }
+          if (d.balance_usd != null) {
+            bodyHtml += `<div class="hint-item">💳 $${d.balance_usd.toFixed(2)} balance</div>`;
+          }
+          if (d.price_usd_month != null) {
+            bodyHtml += `<div class="hint-item">💰 $${d.price_usd_month}/month</div>`;
+          }
+          bodyHtml += `</div>`;
+        }
+        
+        // Stats
+        const stats = [];
+        if (d.total_tokens) stats.push(`🔢 ${d.total_tokens.toLocaleString()} tokens`);
+        if (d.remaining_days) stats.push(`📅 ${d.remaining_days} days left`);
+        if (d.prompts_per_window) stats.push(`📊 ${d.prompts_per_window} / ${d.window_hours || '?'}h`);
+        if (d.valid_until) stats.push(`📅 Until ${d.valid_until}`);
+        if (d.current_window) stats.push(`⏰ ${d.current_window}`);
+        
+        if (stats.length) {
+          bodyHtml += `<div class="hints-well neu-inset-sm" style="margin-top: 8px;">`;
+          stats.forEach(s => { bodyHtml += `<div class="hint-item">${s}</div>`; });
+          bodyHtml += `</div>`;
+        }
+        
+        // Fallback if nothing rendered
+        if (!hasBar && !stats.length && !d.plan && !d.tier) {
+          bodyHtml = `<div class="hints-well neu-inset-sm"><div class="hint-item" style="color: var(--accent-secondary)">Dashboard accessible</div></div>`;
+        }
+
+        // Screenshot (optional)
+        const shot = data.screenshot;
+        if (shot) {
+          const filename = shot.split('/').pop();
+          bodyHtml += `
+            <div class="screenshot-thumb neu-inset-sm" onclick="openModal('/api/screenshots/${encodeURIComponent(filename)}')">
+              <img src="/api/screenshots/${encodeURIComponent(filename)}" alt="${name}" loading="lazy">
+            </div>
+          `;
+        }
+
+      } else if (status === 'need_login') {
+        bodyHtml = `
+          <div class="need-login-msg neu-inset">
+            <span style="font-size: 24px">🔑</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px;">Login required</div>
+              <code>python check_quota.py --login ${key}</code>
+            </div>
+          </div>
+        `;
+      } else {
+        const msg = data.message || 'No data';
+        bodyHtml = `
+          <div class="need-login-msg neu-inset">
+            <span style="font-size: 24px">⚠️</span>
+            <div style="font-size: 13px; color: var(--muted)">${escHtml(msg.substring(0, 80))}</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="provider-card neu-extruded">
+          <div class="provider-header">
+            <div class="provider-name">
+              <div class="provider-emoji-well neu-inset-deep">${emoji}</div>
+              <div>
+                <h3>${escHtml(name)}</h3>
+                <span class="status-dot ${statusDotClass}"></span>
+                <span style="font-size: 12px; color: var(--muted)">${statusLabel(status)}</span>
+              </div>
+            </div>
+            ${method ? `<span class="method-badge neu-inset-sm ${method.replace('browser_cdp','browser')}">${method === 'browser_cdp' ? 'CDP' : method.toUpperCase()}</span>` : ''}
+          </div>
+          ${bodyHtml}
+        </div>
+      `;
+    }
+
+    // ═══ HELPERS ═══
+    function getQuotaPercent(data) {
+      for (const src of [data, data?.api_data || {}]) {
+        const w = src?.['5h_window'];
+        if (w && w.quota_percent != null) return w.quota_percent;
+      }
+      return null;
+    }
+
+    function formatResetTime(data) {
+      for (const src of [data, data?.api_data || {}]) {
+        const reset = src?.['5h_window']?.reset_at;
+        if (reset) {
+          try {
+            const d = new Date(reset);
+            const now = new Date();
+            const diff = d - now;
+            if (diff < 0) return 'reset overdue';
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            if (h > 24) return `resets ${d.toLocaleDateString('en-HK', {month:'short',day:'numeric'})}`;
+            return h > 0 ? `resets in ${h}h ${m}m` : `resets in ${m}m`;
+          } catch { return ''; }
+        }
+      }
+      return '';
+    }
+
+    function statusLabel(s) {
+      const map = { success: 'Online', need_login: 'Need login', error: 'Error' };
+      return map[s] || s;
+    }
+
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s || '';
+      return d.innerHTML;
+    }
+
+    // ═══ ACTIONS ═══
+    async function refreshData() {
+      const btn = document.getElementById('refreshBtn');
+      const icon = document.getElementById('refreshIcon');
+      btn.classList.add('loading');
+      icon.classList.add('btn-spinner');
+      
+      showToast('Refreshing...', '');
+
+      try {
+        const resp = await fetch('/api/refresh', { method: 'POST' });
+        const result = await resp.json();
+        
+        if (result.status === 'ok') {
+          showToast('✓ Refreshed', 'success');
+          // Reload data
+          quotaData = await fetch('/api/data').then(r => r.json());
+          render();
+        } else {
+          showToast('Refresh failed', 'error');
+        }
+      } catch (e) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.classList.remove('loading');
+        icon.classList.remove('btn-spinner');
+      }
+    }
+
+    function openModal(src) {
+      document.getElementById('modalImg').src = src;
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+    }
+
+    function showToast(msg, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = `toast neu-extruded show ${type}`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ESC to close modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // ═══ START ═══
+    init();
+  </script>
+</body>
+</html>
