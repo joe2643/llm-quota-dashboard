@@ -554,9 +554,22 @@ def main():
             
             try:
                 result = prov["fn"](cdp)
-                results[key] = result
+                data = result.get("data", {})
+                real_fields = [k for k, v in data.items() if v is not None and v != "" and k != "provider"]
                 
-                n = len([v for v in result.get("data", {}).values() if v is not None and v != ""])
+                # Login detection
+                if len(real_fields) < 2:
+                    text = cdp.get_text()
+                    login_kw = ["sign in", "log in", "login", "登录", "登入"]
+                    if any(kw in text.lower() for kw in login_kw):
+                        elapsed = time.time() - t1
+                        print(f"  {prov['color']} {prov['name']:15} 🔑 Need login ({elapsed:.1f}s)")
+                        results[key] = {"status": "need_login", "method": "cdp_direct",
+                                        "message": f"Not logged in to {prov['name']}", "last_checked": now_iso()}
+                        continue
+                
+                results[key] = result
+                n = len(real_fields)
                 elapsed = time.time() - t1
                 print(f"  {prov['color']} {prov['name']:15} ✅ {n} fields ({elapsed:.1f}s)")
                 
