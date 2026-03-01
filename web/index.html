@@ -1279,8 +1279,47 @@
       }
     }
 
-    // ═══ AUTO-REFRESH ═══
-    const AUTO_POLL_MS = 30000; // 30s
+    // ═══ LIVE UPDATES (SSE) ═══
+    let _evtSource = null;
+
+    function connectSSE() {
+      if (_evtSource) _evtSource.close();
+      _evtSource = new EventSource('/api/events');
+
+      _evtSource.addEventListener('refresh', (e) => {
+        try {
+          const fresh = JSON.parse(e.data);
+          if (fresh.last_updated) {
+            quotaData = fresh;
+            render();
+            showToast('✓ Data updated (live)', 'success');
+          }
+        } catch {}
+      });
+
+      _evtSource.addEventListener('provider_refresh', (e) => {
+        try {
+          const { provider, data } = JSON.parse(e.data);
+          if (data) {
+            quotaData = data;
+            render();
+          }
+        } catch {}
+      });
+
+      _evtSource.onerror = () => {
+        // Auto-reconnect after 5s (EventSource does this by default,
+        // but we add a fallback poll in case SSE is broken)
+        setTimeout(() => {
+          if (_evtSource.readyState === EventSource.CLOSED) {
+            connectSSE();
+          }
+        }, 5000);
+      };
+    }
+
+    // Fallback poll every 60s (in case SSE disconnects)
+    const AUTO_POLL_MS = 60000;
     let _autoPollTimer = null;
 
     async function autoPoll() {
@@ -1298,14 +1337,16 @@
       _autoPollTimer = setInterval(autoPoll, AUTO_POLL_MS);
     }
 
-    // Pause polling when tab hidden, resume when visible
+    // Pause when tab hidden, resume when visible
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         clearInterval(_autoPollTimer);
         _autoPollTimer = null;
+        if (_evtSource) _evtSource.close();
       } else {
-        autoPoll(); // immediate check
+        autoPoll();
         startAutoPoll();
+        connectSSE();
       }
     });
 
@@ -1331,6 +1372,7 @@
       }
     });
     startAutoPoll();
+    connectSSE();
   </script>
 </body>
 </html>

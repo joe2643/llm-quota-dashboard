@@ -16,7 +16,8 @@ from datetime import datetime, timezone
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from history import record_snapshot, get_history, cleanup
-from flask import Flask, jsonify, send_from_directory, send_file, request
+from flask import Flask, jsonify, send_from_directory, send_file, request, Response
+import queue
 
 PROJECT_DIR = Path(__file__).parent.parent
 DATA_DIR = PROJECT_DIR / "data"
@@ -33,6 +34,25 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger("dashboard")
 
 app = Flask(__name__, static_folder=str(WEB_DIR))
+
+# ─── SSE (Server-Sent Events) ───────────────────────────────────
+
+_sse_clients = []  # list of queue.Queue
+_sse_lock = threading.Lock()
+
+
+def _sse_broadcast(event_type, data):
+    """Send event to all connected SSE clients."""
+    msg = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+    with _sse_lock:
+        dead = []
+        for q in _sse_clients:
+            try:
+                q.put_nowait(msg)
+            except queue.Full:
+                dead.append(q)
+        for q in dead:
+            _sse_clients.remove(q)
 
 # ─── Background scraper ─────────────────────────────────────────
 
@@ -130,12 +150,13 @@ def _run_scraper():
         if result.returncode == 0:
             _last_scrape_ok = time.time()
             log.info("Scraper OK")
-            # Record snapshot to history
+            # Record snapshot to history + broadcast SSE
             try:
                 if QUOTA_FILE.exists():
                     qdata = json.loads(QUOTA_FILE.read_text(encoding="utf-8"))
                     n = record_snapshot(qdata)
                     log.info(f"Recorded {n} history points")
+                    _sse_broadcast("refresh", qdata)
             except Exception as e:
                 log.warning(f"History record failed: {e}")
             return True
@@ -248,12 +269,48 @@ def refresh_provider(provider):
                     record_snapshot(data)
                 except Exception as e:
                     log.warning(f"History record failed: {e}")
+            # Broadcast to all SSE clients
+            _sse_broadcast("provider_refresh", {"provider": provider, "data": data})
             return jsonify({"status": "ok", "data": data.get(provider, {})})
         return jsonify({"status": "error", "error": result.stderr[:200] or "Scraper failed"}), 500
     except subprocess.TimeoutExpired:
         return jsonify({"status": "error", "error": "Timeout"}), 504
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/api/events")
+def sse_stream():
+    """SSE endpoint — clients connect here for live updates."""
+    q = queue.Queue(maxsize=50)
+    with _sse_lock:
+        _sse_clients.append(q)
+
+    def generate():
+        try:
+            yield "event: connected\ndata: {}\n\n"
+            while True:
+                try:
+                    msg = q.get(timeout=30)
+                    yield msg
+                except queue.Empty:
+                    yield ": keepalive\n\n"  # prevent timeout
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                if q in _sse_clients:
+                    _sse_clients.remove(q)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.route("/api/screenshots/<path:filename>")
