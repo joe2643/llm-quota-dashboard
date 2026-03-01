@@ -305,7 +305,11 @@ def scrape_anthropic(tab: CDPTab) -> dict:
 
 def scrape_kimi(tab: CDPTab) -> dict:
     tab.navigate("https://www.kimi.com/code/console?from=kfc_overview_topbar")
-    found, text = tab.wait_for_text(["resets in", "weekly usage"], timeout=25)
+    # First wait for page skeleton
+    tab.wait_for_text(["weekly usage"], timeout=15)
+    # Then wait for actual data (% + hours pattern)
+    time.sleep(3)
+    found, text = tab.wait_for_text(["resets in"], timeout=15)
     if DEBUG:
         print(f"    [kimi] {len(text)}c found={found}")
     data = {"provider": "kimi"}

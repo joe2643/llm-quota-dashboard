@@ -363,7 +363,9 @@ def scrape_kimi(cdp: CDPSession) -> dict:
     """Kimi: code console — slow loader. '-' means 0% used (freshly reset)."""
     
     cdp.navigate("https://www.kimi.com/code/console?from=kfc_overview_topbar")
-    found, text = cdp.wait_for_text(["resets in", "weekly usage"], timeout=25)
+    cdp.wait_for_text(["weekly usage"], timeout=15)
+    time.sleep(3)
+    found, text = cdp.wait_for_text(["resets in"], timeout=15)
     
     if DEBUG:
         print(f"    [kimi] {len(text)}c found={found}")
