@@ -684,7 +684,7 @@
         const d = quotaData[key];
         if (!d || d.status !== 'success') continue;
         const sd = d.data || {};
-        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct'];
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct'];
         for (const f of pctFields) {
           if (sd[f] != null) {
             const rem = 100 - sd[f];
@@ -745,7 +745,7 @@
         
         // Check if any quota is low (using structured data)
         const sd = d.data || {};
-        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct'];
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','current_used_pct','weekly_quota_used_pct'];
         const hasWarning = pctFields.some(f => sd[f] != null && (100 - sd[f]) < 20);
         
         // Also check old format
@@ -788,9 +788,14 @@
       }
 
       grid.innerHTML = keys.map((key, i) => {
-        const config = providerMeta[key];
-        const data = quotaData[key] || {};
-        return renderProviderCard(key, config, data, i);
+        try {
+          const config = providerMeta[key];
+          const data = quotaData[key] || {};
+          return renderProviderCard(key, config, data, i);
+        } catch (e) {
+          console.error(`Card render error for ${key}:`, e);
+          return `<div class="provider-card neu-extruded card-error"><div style="padding:20px;color:#EF4444;">⚠️ ${key}: render error</div></div>`;
+        }
       }).join('');
 
       // Stagger fade-in
@@ -843,8 +848,9 @@
           hasBar = true;
           
           const remaining = 100 - usedPct;
-          const barClass = remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
-          const color = remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
+          const isExtra = field === 'extra_used_pct';
+          const barClass = isExtra ? 'good' : remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
+          const color = isExtra ? 'var(--accent-secondary)' : remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
           
           bodyHtml += `
             <div class="quota-section" style="margin: 8px 0;">
@@ -951,7 +957,7 @@
       if (status === 'need_login') cardClass = 'card-login';
       else if (status !== 'success') cardClass = 'card-error';
       else {
-        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct','rate_limit_used_pct'];
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct','rate_limit_used_pct'];
         const remaining = pctFields.map(f => d[f] != null ? 100 - d[f] : null).filter(v => v !== null);
         const minRemaining = remaining.length ? Math.min(...remaining) : 100;
         if (minRemaining < 10) cardClass = 'card-critical';
@@ -1146,7 +1152,7 @@
         const d = quotaData[key];
         if (!d || d.status !== 'success') continue;
         const sd = d.data || {};
-        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct'];
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct'];
         for (const f of pctFields) {
           if (sd[f] != null && (100 - sd[f]) < 15) {
             lowProviders.push(config.name || key);
