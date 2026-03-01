@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     /* ═══ RESET & BASE ═══ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -461,6 +463,31 @@
       word-break: break-all;
     }
 
+    /* ═══ CHART MODAL ═══ */
+    .chart-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+      z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .chart-modal.active { display: flex; }
+    .chart-modal-content {
+      background: var(--bg); border-radius: var(--radius-card);
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light);
+      padding: 24px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto;
+    }
+    .chart-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chart-modal-header h3 { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; }
+    .chart-time-btns { display: flex; gap: 6px; margin-bottom: 12px; }
+    .chart-time-btns button {
+      padding: 6px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+      background: var(--bg); color: var(--text);
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    }
+    .chart-time-btns button.active {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
     /* ═══ MODAL (Screenshot Lightbox) ═══ */
     .modal-overlay {
       position: fixed;
@@ -561,6 +588,47 @@
 
     .provider-card { opacity: 0; }
     .provider-card.loaded { animation: fadeIn 500ms ease-out forwards; }
+
+    /* ═══ CARD STATUS BORDERS ═══ */
+    .provider-card.card-warning {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(245,158,11,0.4);
+    }
+    .provider-card.card-critical {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.5);
+      animation: pulse-critical 2s ease-in-out infinite;
+    }
+    .provider-card.card-error {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.3);
+    }
+    .provider-card.card-login {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(108,99,255,0.3);
+    }
+
+    @keyframes pulse-critical {
+      0%, 100% { box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.5); }
+      50% { box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 3px rgba(239,68,68,0.8); }
+    }
+
+    /* ═══ ALERT BANNER ═══ */
+    .alert-banner {
+      background: var(--bg);
+      border-radius: var(--radius-btn);
+      padding: 14px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .alert-banner.warning {
+      color: #B45309;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), inset 0 0 0 2px rgba(245,158,11,0.3);
+    }
+    .alert-banner.critical {
+      color: #DC2626;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.4);
+    }
   </style>
 </head>
 <body>
@@ -593,6 +661,24 @@
   <!-- PROVIDERS -->
   <section class="providers-section">
     <div class="container">
+      <!-- Chart Modal -->
+      <div class="chart-modal" id="chartModal" onclick="if(event.target===this)closeChart()">
+        <div class="chart-modal-content">
+          <div class="chart-modal-header">
+            <h3 id="chartTitle">Usage History</h3>
+            <button class="btn neu-extruded-sm" onclick="closeChart()" style="padding:6px 12px;border-radius:10px;font-size:14px;">✕</button>
+          </div>
+          <div class="chart-time-btns" id="chartTimeBtns">
+            <button onclick="loadChart(currentChartProvider,6)" data-h="6">6h</button>
+            <button onclick="loadChart(currentChartProvider,24)" data-h="24" class="active">24h</button>
+            <button onclick="loadChart(currentChartProvider,168)" data-h="168">7d</button>
+          </div>
+          <canvas id="historyChart" height="250"></canvas>
+          <div id="chartEmpty" style="display:none;text-align:center;padding:40px;color:var(--muted);">No history data yet. Charts populate after a few scraper runs.</div>
+        </div>
+      </div>
+
+      <div id="alertBanner"></div>
       <div class="section-title">
         <span>Providers</span>
       </div>
@@ -617,24 +703,10 @@
     let quotaData = {};
 
     // ═══ INIT ═══
-    // Supports both Flask API (local) and static JSON (GitHub Pages)
-    async function fetchJSON(apiPath, staticPath) {
-      try {
-        const r = await fetch(apiPath);
-        if (r.ok) return await r.json();
-      } catch (_) {}
-      // Fallback to static file (GitHub Pages)
-      try {
-        const r = await fetch(staticPath);
-        if (r.ok) return await r.json();
-      } catch (_) {}
-      return {};
-    }
-
     async function init() {
       const [providers, data] = await Promise.all([
-        fetchJSON('/api/providers', 'data/providers.json'),
-        fetchJSON('/api/data', 'data/quota_data.json'),
+        fetch('/api/providers').then(r => r.json()).catch(() => ({})),
+        fetch('/api/data').then(r => r.json()).catch(() => ({})),
       ]);
       providerMeta = providers;
       quotaData = data;
@@ -644,8 +716,48 @@
     // ═══ RENDER ═══
     function render() {
       renderSummary();
+      renderAlerts();
       renderProviders();
       renderLastUpdated();
+    }
+
+    function renderAlerts() {
+      const alerts = [];
+      for (const [key, config] of Object.entries(providerMeta)) {
+        if (!config.enabled) continue;
+        const d = quotaData[key];
+        if (!d || d.status !== 'success') continue;
+        const sd = d.data || {};
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct'];
+        for (const f of pctFields) {
+          if (sd[f] != null) {
+            const rem = 100 - sd[f];
+            if (rem < 10) alerts.push({ provider: config.name || key, field: f.replace('_used_pct','').replace('_',' '), remaining: rem, level: 'critical' });
+            else if (rem < 20) alerts.push({ provider: config.name || key, field: f.replace('_used_pct','').replace('_',' '), remaining: rem, level: 'warning' });
+          }
+        }
+      }
+
+      const el = document.getElementById('alertBanner');
+      if (!alerts.length) { el.innerHTML = ''; return; }
+
+      const critical = alerts.filter(a => a.level === 'critical');
+      const warning = alerts.filter(a => a.level === 'warning');
+
+      let html = '';
+      if (critical.length) {
+        html += `<div class="alert-banner critical neu-inset-sm">
+          <span style="font-size: 20px">🚨</span>
+          <span>${critical.map(a => `<b>${a.provider}</b> ${a.field}: ${a.remaining}% left`).join(' · ')}</span>
+        </div>`;
+      }
+      if (warning.length) {
+        html += `<div class="alert-banner warning neu-inset-sm">
+          <span style="font-size: 20px">⚠️</span>
+          <span>${warning.map(a => `<b>${a.provider}</b> ${a.field}: ${a.remaining}% left`).join(' · ')}</span>
+        </div>`;
+      }
+      el.innerHTML = html;
     }
 
     function renderLastUpdated() {
@@ -654,11 +766,12 @@
       if (!ts) { el.textContent = 'Never checked'; return; }
       try {
         const d = new Date(ts);
-        el.textContent = d.toLocaleString('en-HK', { 
+        const ago = formatTimeAgo(ts);
+        el.textContent = `Updated ${ago} · ${d.toLocaleString('en-HK', { 
           month: 'short', day: 'numeric', 
           hour: '2-digit', minute: '2-digit',
           hour12: false 
-        });
+        })}`;
       } catch { el.textContent = ts; }
     }
 
@@ -676,7 +789,7 @@
         
         // Check if any quota is low (using structured data)
         const sd = d.data || {};
-        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct'];
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','current_used_pct','weekly_quota_used_pct'];
         const hasWarning = pctFields.some(f => sd[f] != null && (100 - sd[f]) < 20);
         
         // Also check old format
@@ -719,9 +832,14 @@
       }
 
       grid.innerHTML = keys.map((key, i) => {
-        const config = providerMeta[key];
-        const data = quotaData[key] || {};
-        return renderProviderCard(key, config, data, i);
+        try {
+          const config = providerMeta[key];
+          const data = quotaData[key] || {};
+          return renderProviderCard(key, config, data, i);
+        } catch (e) {
+          console.error(`Card render error for ${key}:`, e);
+          return `<div class="provider-card neu-extruded card-error"><div style="padding:20px;color:#EF4444;">⚠️ ${key}: render error</div></div>`;
+        }
       }).join('');
 
       // Stagger fade-in
@@ -754,13 +872,15 @@
         // Quota bars — render all percentage fields
         const quotaFields = [
           ['session_used_pct', 'Session', d.session_reset],
-          ['5h_quota_used_pct', '5h Quota', null],
-          ['weekly_used_pct', 'Weekly', d.weekly_reset],
+          ['5h_quota_used_pct', '5h Quota', d['5h_refresh'] || null],
+          ['5h_used_pct', '5h Quota', d['5h_refresh'] || null],
+          ['weekly_used_pct', 'Weekly', d.weekly_reset || d.weekly_refresh || null],
           ['weekly_all_used_pct', 'Weekly (all)', d.weekly_all_reset],
           ['weekly_sonnet_used_pct', 'Sonnet', d.weekly_sonnet_reset],
           ['weekly_quota_used_pct', 'Weekly', d.weekly_reset],
           ['rate_limit_used_pct', 'Rate Limit', null],
           ['monthly_search_used_pct', 'Search', d.monthly_search_reset],
+          ['monthly_used_pct', 'Monthly', d.monthly_refresh || null],
           ['current_used_pct', 'Current', d.reset_in],
           ['extra_used_pct', 'Extra', d.extra_reset],
         ];
@@ -772,8 +892,9 @@
           hasBar = true;
           
           const remaining = 100 - usedPct;
-          const barClass = remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
-          const color = remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
+          const isExtra = field === 'extra_used_pct';
+          const barClass = isExtra ? 'good' : remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
+          const color = isExtra ? 'var(--accent-secondary)' : remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
           
           bodyHtml += `
             <div class="quota-section" style="margin: 8px 0;">
@@ -820,6 +941,25 @@
           bodyHtml += `</div>`;
         }
         
+        // Prompts-per-window bar (MiniMax style)
+        if (!hasBar && d.prompts_per_window && d.window_hours) {
+          bodyHtml += `
+            <div class="quota-section" style="margin: 8px 0;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <div>
+                  <span class="quota-percent" style="color: var(--accent-secondary); font-size: 24px;">${d.prompts_per_window}</span>
+                  <span style="font-size: 12px; color: var(--muted); margin-left: 4px;">prompts / ${d.window_hours}h window</span>
+                </div>
+                ${d.current_window ? `<span style="font-size: 11px; color: var(--muted);">${escHtml(String(d.current_window))}</span>` : ''}
+              </div>
+              <div class="quota-bar-track neu-inset-sm" style="margin-top: 6px; height: 10px;">
+                <div class="quota-bar-fill good" style="width: 100%;"></div>
+              </div>
+            </div>
+          `;
+          hasBar = true;
+        }
+
         // Fallback if nothing rendered
         if (!hasBar && !stats.length && !d.plan && !d.tier) {
           bodyHtml = `<div class="hints-well neu-inset-sm"><div class="hint-item" style="color: var(--accent-secondary)">Dashboard accessible</div></div>`;
@@ -837,15 +977,53 @@
         }
 
       } else if (status === 'need_login') {
+        // Show login warning banner, but still render last success data if available
         bodyHtml = `
-          <div class="need-login-msg neu-inset">
-            <span style="font-size: 24px">🔑</span>
+          <div class="need-login-msg neu-inset" style="margin-bottom: 10px;">
+            <span style="font-size: 18px">🔑</span>
             <div>
-              <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px;">Login required</div>
-              <code>python check_quota.py --login ${key}</code>
+              <div style="font-size: 12px; font-weight: 500;">Login expired</div>
+              <code style="font-size: 10px;">python check_quota.py --login ${key}</code>
             </div>
           </div>
         `;
+        // If we have cached data fields, render them below the warning (greyed out)
+        const hasFields = quotaFields.some(([f]) => d[f] != null);
+        const hasStats = d.prompts_per_window || d.total_tokens || d.remaining_days || d.plan || d.tier;
+        if (hasFields || hasStats) {
+          bodyHtml += `<div style="opacity: 0.5;">`;
+          for (const [field, label, resetInfo] of quotaFields) {
+            const usedPct = d[field];
+            if (usedPct == null) continue;
+            const remaining = 100 - usedPct;
+            const isExtra = field === 'extra_used_pct';
+            const barClass = isExtra ? 'good' : remaining < 10 ? 'critical' : remaining < 30 ? 'warning' : 'good';
+            const color = isExtra ? 'var(--accent-secondary)' : remaining < 10 ? '#EF4444' : remaining < 30 ? '#F59E0B' : 'var(--accent-secondary)';
+            bodyHtml += `
+              <div class="quota-section" style="margin: 8px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <div>
+                    <span class="quota-percent" style="color: ${color}; font-size: 24px;">${remaining}%</span>
+                    <span style="font-size: 12px; color: var(--muted); margin-left: 4px;">${label}</span>
+                  </div>
+                  ${resetInfo ? `<span style="font-size: 11px; color: var(--muted);">${escHtml(String(resetInfo))}</span>` : ''}
+                </div>
+                <div class="quota-bar-track neu-inset-sm" style="margin-top: 6px; height: 10px;">
+                  <div class="quota-bar-fill ${barClass}" style="width: ${usedPct}%;"></div>
+                </div>
+              </div>
+            `;
+          }
+          const stats = [];
+          if (d.total_tokens) stats.push(`🔢 ${d.total_tokens.toLocaleString()} tokens`);
+          if (d.prompts_per_window) stats.push(`📊 ${d.prompts_per_window} / ${d.window_hours || '?'}h`);
+          if (stats.length) {
+            bodyHtml += `<div class="hints-well neu-inset-sm" style="margin-top: 8px;">`;
+            stats.forEach(s => { bodyHtml += `<div class="hint-item">${s}</div>`; });
+            bodyHtml += `</div>`;
+          }
+          bodyHtml += `</div>`; // close opacity wrapper
+        }
       } else {
         const msg = data.message || 'No data';
         bodyHtml = `
@@ -856,8 +1034,20 @@
         `;
       }
 
+      // Determine card status class
+      let cardClass = '';
+      if (status === 'need_login') cardClass = 'card-login';
+      else if (status !== 'success') cardClass = 'card-error';
+      else {
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct','rate_limit_used_pct'];
+        const remaining = pctFields.map(f => d[f] != null ? 100 - d[f] : null).filter(v => v !== null);
+        const minRemaining = remaining.length ? Math.min(...remaining) : 100;
+        if (minRemaining < 10) cardClass = 'card-critical';
+        else if (minRemaining < 20) cardClass = 'card-warning';
+      }
+
       return `
-        <div class="provider-card neu-extruded">
+        <div class="provider-card neu-extruded ${cardClass}">
           <div class="provider-header">
             <div class="provider-name">
               <div class="provider-emoji-well neu-inset-deep">${emoji}</div>
@@ -870,6 +1060,13 @@
             ${method ? `<span class="method-badge neu-inset-sm ${method.replace('browser_cdp','browser')}">${method === 'browser_cdp' ? 'CDP' : method.toUpperCase()}</span>` : ''}
           </div>
           ${bodyHtml}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+            ${data.last_checked ? `<span style="font-size: 11px; color: var(--muted);">🕐 ${formatTimeAgo(data.last_checked)}</span>` : '<span></span>'}
+            <div style="display:flex;gap:6px;">
+              <button class="btn neu-extruded-sm" style="padding:6px 12px;min-height:32px;font-size:11px;border-radius:10px;" onclick="openChart('${key}','${escHtml(name)}')" title="History">📈</button>
+              <button class="btn neu-extruded-sm" style="padding:6px 12px;min-height:32px;font-size:11px;border-radius:10px;" onclick="refreshProvider('${key}', this)" title="Refresh">⟳</button>
+            </div>
+          </div>
         </div>
       `;
     }
@@ -900,6 +1097,21 @@
         }
       }
       return '';
+    }
+
+    function formatTimeAgo(ts) {
+      try {
+        const d = new Date(ts);
+        const now = new Date();
+        const diff = now - d;
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d ago`;
+      } catch { return ts; }
     }
 
     function statusLabel(s) {
@@ -963,8 +1175,162 @@
       if (e.key === 'Escape') closeModal();
     });
 
+    // ═══ CHART ═══
+    let currentChartProvider = null;
+    let historyChart = null;
+    const chartColors = ['#6C63FF','#00D9A6','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'];
+
+    function openChart(provider, name) {
+      currentChartProvider = provider;
+      document.getElementById('chartTitle').textContent = name + ' — Usage History';
+      document.getElementById('chartModal').classList.add('active');
+      loadChart(provider, 24);
+    }
+
+    function closeChart() {
+      document.getElementById('chartModal').classList.remove('active');
+      if (historyChart) { historyChart.destroy(); historyChart = null; }
+    }
+
+    async function loadChart(provider, hours) {
+      // Update active button
+      document.querySelectorAll('#chartTimeBtns button').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.h) === hours);
+      });
+
+      try {
+        const resp = await fetch(`/api/history/${provider}?hours=${hours}`);
+        const data = await resp.json();
+
+        if (!data.length) {
+          document.getElementById('historyChart').style.display = 'none';
+          document.getElementById('chartEmpty').style.display = 'block';
+          if (historyChart) { historyChart.destroy(); historyChart = null; }
+          return;
+        }
+        document.getElementById('historyChart').style.display = 'block';
+        document.getElementById('chartEmpty').style.display = 'none';
+
+        // Group by field
+        const fields = {};
+        for (const d of data) {
+          if (!fields[d.field]) fields[d.field] = [];
+          fields[d.field].push({ x: new Date(d.timestamp), y: d.value });
+        }
+
+        const datasets = Object.entries(fields).map(([field, points], i) => ({
+          label: field.replace('_used_pct', '').replace(/_/g, ' '),
+          data: points,
+          borderColor: chartColors[i % chartColors.length],
+          backgroundColor: chartColors[i % chartColors.length] + '20',
+          fill: true,
+          tension: 0.3,
+          pointRadius: points.length > 50 ? 0 : 3,
+          borderWidth: 2,
+        }));
+
+        if (historyChart) historyChart.destroy();
+        historyChart = new Chart(document.getElementById('historyChart'), {
+          type: 'line',
+          data: { datasets },
+          options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: { type: 'time', time: { tooltipFormat: 'MMM d, HH:mm' },
+                ticks: { color: '#999', maxTicksLimit: 8 }, grid: { display: false } },
+              y: { min: 0, max: 100, ticks: { color: '#999', callback: v => v + '%' },
+                grid: { color: 'rgba(150,150,150,0.1)' } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#999', usePointStyle: true, padding: 16 } },
+              tooltip: { backgroundColor: 'rgba(30,30,30,0.9)', titleColor: '#fff', bodyColor: '#ddd',
+                callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%` } }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Chart load error:', e);
+        document.getElementById('chartEmpty').textContent = 'Error loading history';
+        document.getElementById('chartEmpty').style.display = 'block';
+      }
+    }
+
+    // ═══ PER-PROVIDER REFRESH ═══
+    async function refreshProvider(key, btn) {
+      btn.classList.add('loading');
+      btn.innerHTML = '<span class="btn-spinner">⟳</span>';
+      showToast(`Refreshing ${key}...`, '');
+      try {
+        const resp = await fetch(`/api/refresh/${key}`, { method: 'POST' });
+        const result = await resp.json();
+        if (result.status === 'ok') {
+          showToast(`✓ ${key} refreshed`, 'success');
+          quotaData = await fetchJSON('/api/data', 'data/quota_data.json');
+          render();
+        } else {
+          showToast(`${key}: ${result.error || 'failed'}`, 'error');
+        }
+      } catch (e) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.classList.remove('loading');
+        btn.innerHTML = '⟳';
+      }
+    }
+
+    // ═══ AUTO-REFRESH ═══
+    const AUTO_POLL_MS = 30000; // 30s
+    let _autoPollTimer = null;
+
+    async function autoPoll() {
+      try {
+        const fresh = await fetchJSON('/api/data', 'data/quota_data.json');
+        if (fresh.last_updated && fresh.last_updated !== quotaData.last_updated) {
+          quotaData = fresh;
+          render();
+        }
+      } catch {}
+    }
+
+    function startAutoPoll() {
+      if (_autoPollTimer) return;
+      _autoPollTimer = setInterval(autoPoll, AUTO_POLL_MS);
+    }
+
+    // Pause polling when tab hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        clearInterval(_autoPollTimer);
+        _autoPollTimer = null;
+      } else {
+        autoPoll(); // immediate check
+        startAutoPoll();
+      }
+    });
+
     // ═══ START ═══
-    init();
+    init().then(() => {
+      // Show toast if any provider is low
+      const lowProviders = [];
+      for (const [key, config] of Object.entries(providerMeta)) {
+        if (!config.enabled) continue;
+        const d = quotaData[key];
+        if (!d || d.status !== 'success') continue;
+        const sd = d.data || {};
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','current_used_pct'];
+        for (const f of pctFields) {
+          if (sd[f] != null && (100 - sd[f]) < 15) {
+            lowProviders.push(config.name || key);
+            break;
+          }
+        }
+      }
+      if (lowProviders.length) {
+        showToast(`⚠️ Low quota: ${lowProviders.join(', ')}`, 'error');
+      }
+    });
+    startAutoPoll();
   </script>
 </body>
 </html>
