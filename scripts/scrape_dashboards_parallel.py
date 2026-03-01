@@ -554,6 +554,11 @@ def main():
         if result.get("status") == "success":
             existing[key] = result
         elif result.get("status") == "need_login":
+            # Preserve last successful data under the login warning
+            old = existing.get(key, {})
+            if old.get("status") == "success" and old.get("data"):
+                result["data"] = old["data"]
+                result["last_success_time"] = old.get("last_checked", old.get("last_success_time"))
             existing[key] = result
         else:
             # Keep last successful data, just add error info
