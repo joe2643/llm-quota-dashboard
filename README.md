@@ -79,8 +79,19 @@ If your dashboard renders in a different language, you'll need to update the reg
 
 ### Browser Session Persistence
 
-- **Regular Chrome** (recommended): Uses your profile with saved logins. Sessions persist across restarts.
-- **Headless Chrome** (auto-fallback): Uses a temporary profile at `/tmp/chrome-cdp-dashboard`. No saved logins — only works for providers that don't require auth.
+- **Regular Chrome** (recommended): Uses your profile with saved logins. Sessions persist across restarts. **All providers work.**
+- **Headless Chrome** (auto-fallback): Copies your Chrome profile cookies for session reuse. However, many providers don't work in headless mode due to stricter auth:
+
+| Provider | Headless Support |
+|---|---|
+| Z.AI | ✅ Works (cookie auth) |
+| Kimi | ✅ Works (cookie auth) |
+| DashScope | ❌ Requires full browser session |
+| Anthropic | ❌ CAPTCHA / token auth |
+| MiniMax | ❌ Requires full browser session |
+
+**Recommendation**: Run Chrome with `--remote-debugging-port=18800` for full provider support. Headless is a fallback for when no visible Chrome is available.
+
 - **Multiple Chrome instances**: Only one Chrome can bind to port 18800. Close other CDP-enabled instances before starting.
 
 ### Rate Limits & Provider ToS
