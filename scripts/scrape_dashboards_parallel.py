@@ -447,8 +447,20 @@ PROVIDERS = {
 
 
 def get_browser_ws_url(port=CDP_PORT):
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=5) as r:
-        return json.loads(r.read())["webSocketDebuggerUrl"]
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=5) as r:
+            return json.loads(r.read())["webSocketDebuggerUrl"]
+    except Exception:
+        # Fallback: try starting OpenClaw browser
+        import subprocess as _sp
+        try:
+            _sp.run(["openclaw", "browser", "start"], capture_output=True, timeout=15)
+            time.sleep(2)
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=5) as r:
+                return json.loads(r.read())["webSocketDebuggerUrl"]
+        except Exception:
+            pass
+        raise ConnectionError(f"Cannot connect to CDP on port {port}")
 
 
 def scrape_one(key, browser_ws_url):
