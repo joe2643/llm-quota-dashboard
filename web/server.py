@@ -65,11 +65,34 @@ def _ensure_chrome():
         log.warning("Chrome not found, cannot start CDP")
         return False
 
+    # Copy Chrome profile for session reuse in headless mode
+    chrome_profile = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+    headless_profile = Path("/tmp/chrome-cdp-dashboard")
+    if chrome_profile.exists() and not (headless_profile / "Default" / "Cookies").exists():
+        log.info("Copying Chrome profile for headless session reuse...")
+        (headless_profile / "Default").mkdir(parents=True, exist_ok=True)
+        for f in ["Cookies", "Login Data", "Preferences"]:
+            src = chrome_profile / "Default" / f
+            if src.exists():
+                import shutil
+                shutil.copy2(str(src), str(headless_profile / "Default" / f))
+        for d in ["Local Storage", "Session Storage"]:
+            src = chrome_profile / "Default" / d
+            if src.exists():
+                import shutil
+                dst = headless_profile / "Default" / d
+                if not dst.exists():
+                    shutil.copytree(str(src), str(dst))
+        ls_src = chrome_profile / "Local State"
+        if ls_src.exists():
+            import shutil
+            shutil.copy2(str(ls_src), str(headless_profile / "Local State"))
+
     log.info(f"Starting headless Chrome on port {CDP_PORT}...")
     _chrome_process = subprocess.Popen(
         [chrome_bin, f"--remote-debugging-port={CDP_PORT}",
          "--headless=new", "--disable-gpu", "--no-first-run",
-         "--user-data-dir=/tmp/chrome-cdp-dashboard"],
+         f"--user-data-dir={headless_profile}"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
     # Wait for CDP to be ready
