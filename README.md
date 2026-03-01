@@ -67,13 +67,13 @@ For first-time setup:
 
 The scrapers parse page text using regex patterns. **If your provider dashboard is in a different language** (e.g., Chinese vs English), the regex may not match. Current scrapers support:
 
-| Provider | Languages Tested |
+| Provider | Languages Supported |
 |---|---|
 | Z.AI | English |
 | DashScope | Chinese (中文) + English mixed |
-| Anthropic | English |
-| Kimi | English |
-| MiniMax | English |
+| Anthropic | English (claude.ai is English-only) |
+| Kimi | English + Chinese (中文) |
+| MiniMax | English + Chinese (中文) |
 
 If your dashboard renders in a different language, you'll need to update the regex patterns in the scraper function. Ask your OpenClaw agent — it can inspect the page text and adapt the patterns.
 

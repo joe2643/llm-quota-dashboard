@@ -305,11 +305,10 @@ def scrape_anthropic(tab: CDPTab) -> dict:
 
 def scrape_kimi(tab: CDPTab) -> dict:
     tab.navigate("https://www.kimi.com/code/console?from=kfc_overview_topbar")
-    # First wait for page skeleton
-    tab.wait_for_text(["weekly usage"], timeout=15)
-    # Then wait for actual data (% + hours pattern)
+    # Wait for page — supports both EN and CN
+    tab.wait_for_text(["weekly usage", "周使用", "每周用量", "用量详情"], timeout=15)
     time.sleep(3)
-    found, text = tab.wait_for_text(["resets in"], timeout=15)
+    found, text = tab.wait_for_text(["resets in", "后重置", "小时后"], timeout=15)
     if DEBUG:
         print(f"    [kimi] {len(text)}c found={found}")
     data = {"provider": "kimi"}
@@ -319,36 +318,70 @@ def scrape_kimi(tab: CDPTab) -> dict:
     m = re.search(r'(K[\d.]+)', text)
     if m:
         data["model"] = m.group(1)
+    # EN: "Weekly usage ... 51% Resets in 40 hours"
     m = re.search(r'Weekly\s*usage[\s\S]*?(-|\d+)%?\s*\n\s*Resets?\s*in\s*(.+)', text, re.I)
     if m:
         val = m.group(1)
         data["weekly_used_pct"] = 0 if val == "-" else int(val)
         data["weekly_reset"] = m.group(2).strip()
+    # CN: "周使用量 ... 51% 40 小时后重置" or "每周用量 51% 剩余 40 小时"
+    if "weekly_used_pct" not in data:
+        m = re.search(r'(?:周使用|每周用量)[\s\S]*?(-|\d+)%?\s*\n?\s*(?:(\d+)\s*小时后重置|剩余\s*(\d+)\s*小时)', text)
+        if m:
+            val = m.group(1)
+            data["weekly_used_pct"] = 0 if val == "-" else int(val)
+            hours = m.group(2) or m.group(3)
+            if hours:
+                data["weekly_reset"] = f"{hours} hours"
+    # EN: "Rate limit ... 0% Resets in 2 hours"
     m = re.search(r'Rate\s*limit[\s\S]*?(-|\d+)%?\s*\n\s*Resets?\s*in\s*(.+)', text, re.I)
     if m:
         val = m.group(1)
         data["rate_limit_used_pct"] = 0 if val == "-" else int(val)
         data["rate_reset"] = m.group(2).strip()
+    # CN: "速率限制 ... 0% 2 小时后重置"
+    if "rate_limit_used_pct" not in data:
+        m = re.search(r'速率限制[\s\S]*?(-|\d+)%?\s*\n?\s*(\d+)\s*小时后重置', text)
+        if m:
+            val = m.group(1)
+            data["rate_limit_used_pct"] = 0 if val == "-" else int(val)
+            data["rate_reset"] = f"{m.group(2)} hours"
     return {"status": "success", "method": "cdp_parallel", "data": data, "last_checked": now_iso()}
 
 
 def scrape_minimax(tab: CDPTab) -> dict:
     tab.navigate("https://platform.minimax.io/user-center/payment/coding-plan")
-    found, text = tab.wait_for_text(["% used", "available usage", "valid until"], timeout=12)
+    found, text = tab.wait_for_text(["% used", "available usage", "valid until",
+                                      "可用额度", "有效期至", "已使用"], timeout=12)
     if DEBUG:
         print(f"    [minimax] {len(text)}c found={found}")
     data = {"provider": "minimax"}
+    # EN/CN plan name
     m = re.search(r'((?:Plus|Starter|Pro|Enterprise)\s*[–\-]\s*\S+)', text)
     if m:
         data["plan"] = m.group(1).strip()
+    # EN: "Available usage: 300 prompts / 5 hours"
     m = re.search(r'Available\s*usage:\s*(\d+)\s*prompts?\s*/\s*(\d+)\s*hours?', text, re.I)
     if m:
         data["prompts_per_window"] = int(m.group(1))
         data["window_hours"] = int(m.group(2))
+    # CN: "可用额度: 300 次 / 5 小时" or "可用额度：300次/5小时"
+    if "prompts_per_window" not in data:
+        m = re.search(r'可用额度[：:]\s*(\d+)\s*次?\s*/\s*(\d+)\s*小时', text)
+        if m:
+            data["prompts_per_window"] = int(m.group(1))
+            data["window_hours"] = int(m.group(2))
+    # EN: "Valid until: 03/27/2026"
     m = re.search(r'Valid\s*until\s*:?\s*([\d/]+)', text, re.I)
     if m:
         data["valid_until"] = m.group(1).strip()
-    m = re.search(r'(\d+)%\s*Used', text, re.I)
+    # CN: "有效期至: 2026/03/27" or "有效期至 03/27/2026"
+    if "valid_until" not in data:
+        m = re.search(r'有效期至[：:]?\s*([\d/\-]+)', text)
+        if m:
+            data["valid_until"] = m.group(1).strip()
+    # % used (EN + CN)
+    m = re.search(r'(\d+)%\s*(?:Used|已使用)', text, re.I)
     if m:
         data["current_used_pct"] = int(m.group(1))
     m = re.search(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\(?UTC\)?', text)
@@ -357,6 +390,12 @@ def scrape_minimax(tab: CDPTab) -> dict:
     m = re.search(r'Resets?\s*in\s*([\d]+\s*hr\s*[\d]*\s*min|[\d]+\s*(?:hour|hr|min)s?)', text, re.I)
     if m:
         data["reset_in"] = m.group(1).strip()
+    # CN: "X 小时后重置" or "剩余 X 小时"
+    if "reset_in" not in data:
+        m = re.search(r'(\d+)\s*小时后重置|剩余\s*(\d+)\s*小时', text)
+        if m:
+            hours = m.group(1) or m.group(2)
+            data["reset_in"] = f"{hours} hr"
     return {"status": "success", "method": "cdp_parallel", "data": data, "last_checked": now_iso()}
 
 
