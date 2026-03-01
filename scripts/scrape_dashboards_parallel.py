@@ -215,6 +215,10 @@ def scrape_dashscope(tab: CDPTab) -> dict:
     m = re.search(r'(\d+)%\s*\n\s*(?:每月|Monthly|Every\s*Month)', text, re.I)
     if m:
         data["monthly_used_pct"] = int(m.group(1))
+    # CN: "8% 每 5 小时" — new format
+    m = re.search(r'(\d+)%\s*每\s*5\s*小时', text, re.I)
+    if m:
+        data["5h_used_pct"] = int(m.group(1))
     # CN: "开始时间" | EN: "Start Time"
     m = re.search(r'(?:开始时间|Start\s*Time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
@@ -228,7 +232,7 @@ def scrape_dashscope(tab: CDPTab) -> dict:
         const tds = document.querySelectorAll('td');
         for (const td of tds) {
             const t = td.textContent.toLowerCase();
-            if (t.includes('%') && (t.includes('周') || t.includes('week') || t.includes('月') || t.includes('month'))) {
+            if (t.includes('%') && (t.includes('周') || t.includes('week') || t.includes('月') || t.includes('month') || t.includes('小时') || t.includes('hour'))) {
                 const r = td.getBoundingClientRect();
                 if (r.width > 0 && r.height > 0) {
                     return JSON.stringify({x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)});
@@ -394,7 +398,10 @@ def scrape_kimi(tab: CDPTab) -> dict:
 def scrape_minimax(tab: CDPTab) -> dict:
     tab.navigate("https://platform.minimax.io/user-center/payment/coding-plan")
     found, text = tab.wait_for_text(["% used", "available usage", "valid until",
-                                      "可用额度", "有效期至", "已使用"], timeout=12)
+                                      "可用额度", "有效期至", "已使用"], timeout=18)
+    # MiniMax page might render slowly — wait for full load
+    time.sleep(2)
+    text = tab.get_text()  # re-read after delay
     if DEBUG:
         print(f"    [minimax] {len(text)}c found={found}")
     data = {"provider": "minimax"}
