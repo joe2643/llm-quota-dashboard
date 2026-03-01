@@ -211,6 +211,10 @@ def scrape_dashscope(tab: CDPTab) -> dict:
     m = re.search(r'(\d+)%\s*\n\s*(?:每周|Every\s*Week|Weekly)', text, re.I)
     if m:
         data["weekly_used_pct"] = int(m.group(1))
+    # CN: "5%\n每月" | EN: "5%\nMonthly"
+    m = re.search(r'(\d+)%\s*\n\s*(?:每月|Monthly|Every\s*Month)', text, re.I)
+    if m:
+        data["monthly_used_pct"] = int(m.group(1))
     # CN: "开始时间" | EN: "Start Time"
     m = re.search(r'(?:开始时间|Start\s*Time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
@@ -224,7 +228,7 @@ def scrape_dashscope(tab: CDPTab) -> dict:
         const tds = document.querySelectorAll('td');
         for (const td of tds) {
             const t = td.textContent.toLowerCase();
-            if (t.includes('%') && (t.includes('周') || t.includes('week'))) {
+            if (t.includes('%') && (t.includes('周') || t.includes('week') || t.includes('月') || t.includes('month'))) {
                 const r = td.getBoundingClientRect();
                 if (r.width > 0 && r.height > 0) {
                     return JSON.stringify({x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)});
