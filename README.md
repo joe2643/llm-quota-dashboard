@@ -47,6 +47,21 @@ For first-time setup:
 3. Run the scraper — it will reuse your sessions
 
 > 💡 **With OpenClaw**: Tell your agent to open each provider's login page in the browser, then log in interactively. The agent can guide you through each provider step by step.
+>
+> You may need to enable host browser control in your OpenClaw config:
+> ```json
+> {
+>   "agents": {
+>     "defaults": {
+>       "sandbox": {
+>         "browser": {
+>           "allowHostControl": true
+>         }
+>       }
+>     }
+>   }
+> }
+> ```
 
 ### Language-Dependent Scraping
 
