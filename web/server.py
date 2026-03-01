@@ -244,6 +244,10 @@ def refresh_provider(provider):
             data = {}
             if QUOTA_FILE.exists():
                 data = json.loads(QUOTA_FILE.read_text(encoding="utf-8"))
+                try:
+                    record_snapshot(data)
+                except Exception as e:
+                    log.warning(f"History record failed: {e}")
             return jsonify({"status": "ok", "data": data.get(provider, {})})
         return jsonify({"status": "error", "error": result.stderr[:200] or "Scraper failed"}), 500
     except subprocess.TimeoutExpired:

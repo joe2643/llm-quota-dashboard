@@ -534,7 +534,20 @@ def main():
             results[key] = result
 
     existing = load_existing()
-    existing.update(results)
+    for key, result in results.items():
+        if result.get("status") == "success":
+            existing[key] = result
+        elif result.get("status") == "need_login":
+            existing[key] = result
+        else:
+            # Keep last successful data, just add error info
+            old = existing.get(key, {})
+            if old.get("status") == "success":
+                old["last_error"] = result.get("error", "scrape failed")
+                old["last_error_time"] = now_iso()
+                existing[key] = old
+            else:
+                existing[key] = result
     existing["last_updated"] = now_iso()
     save_data(existing)
 
