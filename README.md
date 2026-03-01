@@ -35,6 +35,48 @@ The server automatically:
 
 ---
 
+## ⚠️ Important Notes
+
+### Pre-login Required
+
+The scraper reads data from provider dashboards using your existing Chrome sessions. **You must be logged in to each provider in Chrome before the scraper can extract data.** If a provider isn't logged in, the dashboard will show a 🔑 "Need login" card.
+
+For first-time setup:
+1. Open Chrome with `--remote-debugging-port=18800`
+2. Manually log in to each provider's dashboard
+3. Run the scraper — it will reuse your sessions
+
+> 💡 **With OpenClaw**: Tell your agent to open each provider's login page in the browser, then log in interactively. The agent can guide you through each provider step by step.
+
+### Language-Dependent Scraping
+
+The scrapers parse page text using regex patterns. **If your provider dashboard is in a different language** (e.g., Chinese vs English), the regex may not match. Current scrapers support:
+
+| Provider | Languages Tested |
+|---|---|
+| Z.AI | English |
+| DashScope | Chinese (中文) + English mixed |
+| Anthropic | English |
+| Kimi | English |
+| MiniMax | English |
+
+If your dashboard renders in a different language, you'll need to update the regex patterns in the scraper function. Ask your OpenClaw agent — it can inspect the page text and adapt the patterns.
+
+### Browser Session Persistence
+
+- **Regular Chrome** (recommended): Uses your profile with saved logins. Sessions persist across restarts.
+- **Headless Chrome** (auto-fallback): Uses a temporary profile at `/tmp/chrome-cdp-dashboard`. No saved logins — only works for providers that don't require auth.
+- **Multiple Chrome instances**: Only one Chrome can bind to port 18800. Close other CDP-enabled instances before starting.
+
+### Rate Limits & Provider ToS
+
+The scraper navigates provider dashboards like a normal user — no API abuse. However:
+- Don't set refresh intervals too low (< 10 min) to avoid triggering anti-bot detection
+- Some providers (e.g., Anthropic) may show CAPTCHAs after repeated automated visits
+- The 30-minute default interval is conservative and recommended
+
+---
+
 ## Architecture
 
 ```
