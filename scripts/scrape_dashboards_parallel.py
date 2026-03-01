@@ -54,6 +54,10 @@ class CDPTab:
         resp = self._send_browser("Target.attachToTarget", {"targetId": self.target_id, "flatten": True})
         self.session_id = resp["result"]["sessionId"]
         self._send_session("Page.enable")
+        # Set viewport large enough for wide dashboards
+        self._send_session("Emulation.setDeviceMetricsOverride", {
+            "width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": False
+        })
         return self
 
     def close(self):
@@ -182,7 +186,10 @@ def scrape_zai(tab: CDPTab) -> dict:
 def scrape_dashscope(tab: CDPTab) -> dict:
     tab.navigate("https://modelstudio.console.alibabacloud.com/ap-southeast-1/?tab=dashboard#/efm/coding_plan")
     found, text = tab.wait_for_text(["coding plan", "套餐用量", "剩余天数",
-                                      "remaining days", "subscription", "usage"], timeout=18)
+                                      "remaining days", "USD/month", "美元/月"], timeout=18)
+    # DashScope table renders slowly — wait for data to fully load before hover
+    time.sleep(3)
+    text = tab.get_text()  # re-read after delay
     if DEBUG:
         print(f"    [dashscope] {len(text)}c found={found}")
     data = {"provider": "dashscope"}
@@ -190,52 +197,55 @@ def scrape_dashscope(tab: CDPTab) -> dict:
     m = re.search(r'(Coding Plan\s*\w*)', text)
     if m:
         data["plan"] = m.group(1).strip()
-    # CN: "50美元/月" | EN: "$50/month" or "50 USD/month"
-    m = re.search(r'(\d+)美元/月', text)
+    # CN: "50美元/月" | EN: "50 USD/month" or "$50/month"
+    m = re.search(r'(\d+)\s*(?:美元/月|USD/month)', text, re.I)
     if not m:
-        m = re.search(r'\$(\d+)/month|(\d+)\s*USD/month', text, re.I)
+        m = re.search(r'\$(\d+)/month', text, re.I)
     if m:
-        data["price_usd_month"] = int(m.group(1) or m.group(2))
+        data["price_usd_month"] = int(m.group(1))
     # CN: "26天" | EN: "26 days"
-    m = re.search(r'(\d+)天', text)
-    if not m:
-        m = re.search(r'(\d+)\s*days?', text, re.I)
+    m = re.search(r'(\d+)\s*(?:天|days?)\b', text, re.I)
     if m:
         data["remaining_days"] = int(m.group(1))
-    # CN: "10%\n每周" | EN: "10%\nWeekly"
-    m = re.search(r'(\d+)%\s*\n\s*(?:每周|Weekly)', text, re.I)
+    # CN: "10%\n每周" | EN: "10%\nEvery Week" or "10%\nWeekly"
+    m = re.search(r'(\d+)%\s*\n\s*(?:每周|Every\s*Week|Weekly)', text, re.I)
     if m:
         data["weekly_used_pct"] = int(m.group(1))
-    # CN: "开始时间" | EN: "Start time"
-    m = re.search(r'(?:开始时间|Start\s*time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
+    # CN: "开始时间" | EN: "Start Time"
+    m = re.search(r'(?:开始时间|Start\s*Time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
         data["start_time"] = m.group(1).strip()
-    m = re.search(r'(?:结束时间|End\s*time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
+    m = re.search(r'(?:结束时间|End\s*Time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
         data["end_time"] = m.group(1).strip()
 
-    # Hover popover — find the usage cell (CN: contains '每周', EN: contains 'Weekly')
+    # Hover popover — find the usage cell (CN: 每周, EN: Week/weekly)
     bbox_js = """(() => {
         const tds = document.querySelectorAll('td');
         for (const td of tds) {
-            const t = td.textContent;
-            if (t.includes('%') && (t.includes('每周') || t.includes('Weekly') || t.includes('weekly'))) {
+            const t = td.textContent.toLowerCase();
+            if (t.includes('%') && (t.includes('周') || t.includes('week'))) {
                 const r = td.getBoundingClientRect();
-                return JSON.stringify({x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)});
+                if (r.width > 0 && r.height > 0) {
+                    return JSON.stringify({x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)});
+                }
             }
         }
         return null;
     })()"""
     bbox_raw = tab.evaluate(bbox_js)
+    if DEBUG:
+        print(f"    [dashscope] hover target: {bbox_raw}")
     if bbox_raw and bbox_raw != "null":
         try:
             bbox = json.loads(bbox_raw)
             tab.mouse_move(0, 0)
-            time.sleep(0.1)
-            tab.mouse_move(bbox["x"], bbox["y"])
-            time.sleep(1.5)
-        except:
-            pass
+            time.sleep(0.3)
+            tab.mouse_move(int(bbox["x"]), int(bbox["y"]))
+            time.sleep(2.5)
+        except Exception as e:
+            if DEBUG:
+                print(f"    [dashscope] hover error: {e}")
 
     popover_js = """(() => {
         const card = document.querySelector('[class*="dosage-details-card"]');
@@ -249,11 +259,11 @@ def scrape_dashscope(tab: CDPTab) -> dict:
             const labels = section.querySelectorAll('[class*="stat-item-label"]');
             if (!titleEl) return;
             const period = titleEl.textContent.trim();
-            const entry = { refresh: refreshEl?.textContent?.trim() || '' };
+            const items = [];
             labels.forEach((label, i) => {
-                entry[label.textContent.trim()] = values[i]?.textContent?.trim() || '';
+                items.push({label: label.textContent.trim(), value: values[i]?.textContent?.trim() || ''});
             });
-            result[period] = entry;
+            result[period] = {refresh: refreshEl?.textContent?.trim() || '', items: items};
         });
         return JSON.stringify(result);
     })()"""
@@ -263,36 +273,36 @@ def scrape_dashscope(tab: CDPTab) -> dict:
             popover = json.loads(popover_raw)
             # Map both CN and EN period names to prefix
             period_map = {
-                "每5小时": "5h", "Every 5 hours": "5h", "Per 5 hours": "5h",
+                "每5小时": "5h", "Every 5": "5h",
                 "每周": "weekly", "Weekly": "weekly",
-                "每订阅月": "monthly", "Monthly": "monthly", "Per month": "monthly",
-            }
-            # Map both CN and EN stat labels
-            stat_keys = {
-                "总量": "total", "Total": "total",
-                "已使用": "used", "Used": "used",
-                "使用率": "usage_rate", "Usage rate": "usage_rate", "Usage": "usage_rate",
+                "每订阅月": "monthly", "Every Subscription": "monthly", "Monthly": "monthly",
             }
             for period_name, pdata in popover.items():
                 prefix = None
                 for key, pfx in period_map.items():
-                    if key in period_name:
+                    if key.lower() in period_name.lower():
                         prefix = pfx
                         break
                 if not prefix:
                     continue
-                for label, role in stat_keys.items():
-                    val = pdata.get(label, "").replace(",", "").replace("%", "")
-                    if not val or not val.isdigit():
-                        continue
-                    if role == "total":
-                        data[f"{prefix}_total"] = int(val)
-                    elif role == "used":
-                        data[f"{prefix}_used"] = int(val)
-                    elif role == "usage_rate":
-                        data[f"{prefix}_used_pct"] = int(val)
                 if pdata.get("refresh"):
                     data[f"{prefix}_refresh"] = pdata["refresh"]
+                for item in pdata.get("items", []):
+                    label = item.get("label", "")
+                    val = item.get("value", "")
+                    val_clean = val.replace(",", "").replace("%", "").strip()
+                    if not val_clean.isdigit():
+                        continue
+                    num = int(val_clean)
+                    if label in ("总量", "Total"):
+                        data[f"{prefix}_total"] = num
+                    elif label in ("使用率", "Usage rate"):
+                        data[f"{prefix}_used_pct"] = num
+                    elif "%" in val:
+                        # EN: duplicate "Used" label — the one with % is usage rate
+                        data[f"{prefix}_used_pct"] = num
+                    elif label in ("已使用", "Used"):
+                        data[f"{prefix}_used"] = num
         except:
             pass
     return {"status": "success", "method": "cdp_parallel", "data": data, "last_checked": now_iso()}
