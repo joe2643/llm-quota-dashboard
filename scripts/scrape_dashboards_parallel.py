@@ -472,6 +472,10 @@ def scrape_one(key, browser_ws_url):
                              "message": f"Not logged in to {prov['name']}", "last_checked": now_iso()}
 
         n = len(real_fields)
+        if n == 0:
+            print(f"  {prov['color']} {prov['name']:15} ⚠️ 0 fields ({elapsed:.1f}s)")
+            return key, {"status": "error", "method": "cdp_parallel",
+                         "error": "No data extracted", "last_checked": now_iso()}
         print(f"  {prov['color']} {prov['name']:15} ✅ {n} fields ({elapsed:.1f}s)")
         return key, result
     except Exception as e:
