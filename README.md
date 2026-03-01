@@ -70,7 +70,7 @@ The scrapers parse page text using regex patterns. **If your provider dashboard 
 | Provider | Languages Supported |
 |---|---|
 | Z.AI | English |
-| DashScope | Chinese (中文) + English mixed |
+| DashScope | Chinese (中文) primary — coding plan page is CN-only; EN fallback patterns included |
 | Anthropic | English (claude.ai is English-only) |
 | Kimi | English + Chinese (中文) |
 | MiniMax | English + Chinese (中文) |
