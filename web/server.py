@@ -184,6 +184,29 @@ def refresh():
     return jsonify({"status": "error", "error": "Scraper failed"}), 500
 
 
+@app.route("/api/refresh/<provider>", methods=["POST"])
+def refresh_provider(provider):
+    """Refresh a single provider."""
+    if not _ensure_chrome():
+        return jsonify({"status": "error", "error": "No Chrome available"}), 500
+    try:
+        result = subprocess.run(
+            ["python3", str(SCRAPER_SCRIPT), "-p", provider],
+            capture_output=True, text=True, timeout=120,
+            cwd=str(PROJECT_DIR),
+        )
+        if result.returncode == 0:
+            data = {}
+            if QUOTA_FILE.exists():
+                data = json.loads(QUOTA_FILE.read_text(encoding="utf-8"))
+            return jsonify({"status": "ok", "data": data.get(provider, {})})
+        return jsonify({"status": "error", "error": result.stderr[:200] or "Scraper failed"}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "error", "error": "Timeout"}), 504
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
 @app.route("/api/screenshots/<path:filename>")
 def get_screenshot(filename):
     return send_from_directory(str(SCREENSHOT_DIR), filename)

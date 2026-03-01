@@ -878,7 +878,10 @@
             ${method ? `<span class="method-badge neu-inset-sm ${method.replace('browser_cdp','browser')}">${method === 'browser_cdp' ? 'CDP' : method.toUpperCase()}</span>` : ''}
           </div>
           ${bodyHtml}
-          ${data.last_checked ? `<div style="font-size: 11px; color: var(--muted); margin-top: 12px; text-align: right;">🕐 ${formatTimeAgo(data.last_checked)}</div>` : ''}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+            ${data.last_checked ? `<span style="font-size: 11px; color: var(--muted);">🕐 ${formatTimeAgo(data.last_checked)}</span>` : '<span></span>'}
+            <button class="btn neu-extruded-sm" style="padding: 6px 12px; min-height: 32px; font-size: 11px; border-radius: 10px;" onclick="refreshProvider('${key}', this)" title="Refresh ${escHtml(name)}">⟳</button>
+          </div>
         </div>
       `;
     }
@@ -986,6 +989,29 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ═══ PER-PROVIDER REFRESH ═══
+    async function refreshProvider(key, btn) {
+      btn.classList.add('loading');
+      btn.innerHTML = '<span class="btn-spinner">⟳</span>';
+      showToast(`Refreshing ${key}...`, '');
+      try {
+        const resp = await fetch(`/api/refresh/${key}`, { method: 'POST' });
+        const result = await resp.json();
+        if (result.status === 'ok') {
+          showToast(`✓ ${key} refreshed`, 'success');
+          quotaData = await fetchJSON('/api/data', 'data/quota_data.json');
+          render();
+        } else {
+          showToast(`${key}: ${result.error || 'failed'}`, 'error');
+        }
+      } catch (e) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.classList.remove('loading');
+        btn.innerHTML = '⟳';
+      }
+    }
 
     // ═══ AUTO-REFRESH ═══
     const AUTO_POLL_MS = 30000; // 30s
