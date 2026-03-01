@@ -45,6 +45,14 @@ The server automatically:
 The scraper reads data from provider dashboards using your existing Chrome sessions. **You must be logged in to each provider in Chrome before the scraper can extract data.** If a provider isn't logged in, the dashboard will show a 🔑 "Need login" card.
 
 For first-time setup:
+
+**Option A: Use OpenClaw browser (recommended)**
+1. Install [OpenClaw](https://github.com/openclaw/openclaw)
+2. Run `openclaw browser start` — this launches a persistent Chrome profile at `~/.openclaw/browser/`
+3. Log in to each provider dashboard in that browser (sessions are saved permanently)
+4. The scraper auto-detects this browser on port 18800 — no extra flags needed
+
+**Option B: Use your own Chrome**
 1. Open Chrome with `--remote-debugging-port=18800`
 2. Manually log in to each provider's dashboard
 3. Run the scraper — it will reuse your sessions
