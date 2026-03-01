@@ -81,6 +81,27 @@ OpenClaw will:
 
 This is how the dashboard was built — each provider scraper was developed conversationally through OpenClaw.
 
+### Example Prompts for OpenClaw
+
+```
+"Add DeepSeek to my LLM quota dashboard"
+
+"Set up the dashboard on port 8502 with Cloudflare Tunnel"
+
+"My Groq dashboard shows rate limits at platform.groq.com/usage — 
+ add it to the scraper"
+
+"The Kimi scraper is reading stale data, fix the wait logic"
+
+"Add a new field 'daily_used_pct' to the Anthropic scraper — 
+ it shows on the usage page as 'Daily usage: XX%'"
+
+"Run a manual refresh and send me the results on WhatsApp"
+
+"Schedule quota checks every 6 hours and alert me if any provider 
+ drops below 20%"
+```
+
 ### Manual: Edit providers.json + scraper
 
 **Step 1**: Add to `data/providers.json`:
