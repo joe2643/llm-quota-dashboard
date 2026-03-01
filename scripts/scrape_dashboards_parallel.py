@@ -346,7 +346,7 @@ def scrape_anthropic(tab: CDPTab) -> dict:
 def scrape_kimi(tab: CDPTab) -> dict:
     tab.navigate("https://www.kimi.com/code/console?from=kfc_overview_topbar")
     # Wait for page — supports both EN and CN
-    tab.wait_for_text(["weekly usage", "周使用", "每周用量", "用量详情"], timeout=15)
+    tab.wait_for_text(["weekly usage", "本周用量", "周使用"], timeout=15)
     time.sleep(3)
     found, text = tab.wait_for_text(["resets in", "后重置", "小时后"], timeout=15)
     if DEBUG:
@@ -364,24 +364,22 @@ def scrape_kimi(tab: CDPTab) -> dict:
         val = m.group(1)
         data["weekly_used_pct"] = 0 if val == "-" else int(val)
         data["weekly_reset"] = m.group(2).strip()
-    # CN: "周使用量 ... 51% 40 小时后重置" or "每周用量 51% 剩余 40 小时"
+    # CN: "本周用量 ... 51% 40小时后重置"
     if "weekly_used_pct" not in data:
-        m = re.search(r'(?:周使用|每周用量)[\s\S]*?(-|\d+)%?\s*\n?\s*(?:(\d+)\s*小时后重置|剩余\s*(\d+)\s*小时)', text)
+        m = re.search(r'(?:本周用量|周使用|每周用量)[\s\S]*?(-|\d+)%\s*\n?\s*(\d+)\s*小时后重置', text)
         if m:
             val = m.group(1)
             data["weekly_used_pct"] = 0 if val == "-" else int(val)
-            hours = m.group(2) or m.group(3)
-            if hours:
-                data["weekly_reset"] = f"{hours} hours"
+            data["weekly_reset"] = f"{m.group(2)} hours"
     # EN: "Rate limit ... 0% Resets in 2 hours"
     m = re.search(r'Rate\s*limit[\s\S]*?(-|\d+)%?\s*\n\s*Resets?\s*in\s*(.+)', text, re.I)
     if m:
         val = m.group(1)
         data["rate_limit_used_pct"] = 0 if val == "-" else int(val)
         data["rate_reset"] = m.group(2).strip()
-    # CN: "速率限制 ... 0% 2 小时后重置"
+    # CN: "频限明细 ... 0% 2小时后重置"
     if "rate_limit_used_pct" not in data:
-        m = re.search(r'速率限制[\s\S]*?(-|\d+)%?\s*\n?\s*(\d+)\s*小时后重置', text)
+        m = re.search(r'(?:频限明细|速率限制)[\s\S]*?(-|\d+)%\s*\n?\s*(\d+)\s*小时后重置', text)
         if m:
             val = m.group(1)
             data["rate_limit_used_pct"] = 0 if val == "-" else int(val)

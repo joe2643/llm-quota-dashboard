@@ -72,7 +72,7 @@ The scrapers parse page text using regex patterns. **If your provider dashboard 
 | Z.AI | English |
 | DashScope | English ✅ + Chinese (中文) ✅ — both tested |
 | Anthropic | English |
-| Kimi | English |
+| Kimi | English ✅ + Chinese (中文) ✅ — both tested |
 | MiniMax | English |
 
 If your dashboard renders in a different language, you'll need to update the regex patterns in the scraper function. Ask your OpenClaw agent — it can inspect the page text and adapt the patterns.
