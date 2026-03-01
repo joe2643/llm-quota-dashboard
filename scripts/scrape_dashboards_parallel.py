@@ -181,34 +181,45 @@ def scrape_zai(tab: CDPTab) -> dict:
 
 def scrape_dashscope(tab: CDPTab) -> dict:
     tab.navigate("https://modelstudio.console.alibabacloud.com/ap-southeast-1/?tab=dashboard#/efm/coding_plan")
-    found, text = tab.wait_for_text(["coding plan", "套餐用量", "剩余天数"], timeout=18)
+    found, text = tab.wait_for_text(["coding plan", "套餐用量", "剩余天数",
+                                      "remaining days", "subscription", "usage"], timeout=18)
     if DEBUG:
         print(f"    [dashscope] {len(text)}c found={found}")
     data = {"provider": "dashscope"}
+    # Plan name (works for both CN/EN — "Coding Plan" appears in both)
     m = re.search(r'(Coding Plan\s*\w*)', text)
     if m:
         data["plan"] = m.group(1).strip()
+    # CN: "50美元/月" | EN: "$50/month" or "50 USD/month"
     m = re.search(r'(\d+)美元/月', text)
+    if not m:
+        m = re.search(r'\$(\d+)/month|(\d+)\s*USD/month', text, re.I)
     if m:
-        data["price_usd_month"] = int(m.group(1))
+        data["price_usd_month"] = int(m.group(1) or m.group(2))
+    # CN: "26天" | EN: "26 days"
     m = re.search(r'(\d+)天', text)
+    if not m:
+        m = re.search(r'(\d+)\s*days?', text, re.I)
     if m:
         data["remaining_days"] = int(m.group(1))
-    m = re.search(r'(\d+)%\s*\n\s*每周', text)
+    # CN: "10%\n每周" | EN: "10%\nWeekly"
+    m = re.search(r'(\d+)%\s*\n\s*(?:每周|Weekly)', text, re.I)
     if m:
         data["weekly_used_pct"] = int(m.group(1))
-    m = re.search(r'开始时间\s*\n\s*([\d-]+\s+[\d:]+)', text)
+    # CN: "开始时间" | EN: "Start time"
+    m = re.search(r'(?:开始时间|Start\s*time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
         data["start_time"] = m.group(1).strip()
-    m = re.search(r'结束时间\s*\n\s*([\d-]+\s+[\d:]+)', text)
+    m = re.search(r'(?:结束时间|End\s*time)\s*\n\s*([\d-]+\s+[\d:]+)', text, re.I)
     if m:
         data["end_time"] = m.group(1).strip()
 
-    # Hover popover
+    # Hover popover — find the usage cell (CN: contains '每周', EN: contains 'Weekly')
     bbox_js = """(() => {
         const tds = document.querySelectorAll('td');
         for (const td of tds) {
-            if (td.textContent.includes('%') && td.textContent.includes('每周')) {
+            const t = td.textContent;
+            if (t.includes('%') && (t.includes('每周') || t.includes('Weekly') || t.includes('weekly'))) {
                 const r = td.getBoundingClientRect();
                 return JSON.stringify({x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)});
             }
@@ -250,19 +261,38 @@ def scrape_dashscope(tab: CDPTab) -> dict:
     if popover_raw and popover_raw != "null":
         try:
             popover = json.loads(popover_raw)
-            for period, prefix in [("每5小时", "5h"), ("每周", "weekly"), ("每订阅月", "monthly")]:
-                if period not in popover:
+            # Map both CN and EN period names to prefix
+            period_map = {
+                "每5小时": "5h", "Every 5 hours": "5h", "Per 5 hours": "5h",
+                "每周": "weekly", "Weekly": "weekly",
+                "每订阅月": "monthly", "Monthly": "monthly", "Per month": "monthly",
+            }
+            # Map both CN and EN stat labels
+            stat_keys = {
+                "总量": "total", "Total": "total",
+                "已使用": "used", "Used": "used",
+                "使用率": "usage_rate", "Usage rate": "usage_rate", "Usage": "usage_rate",
+            }
+            for period_name, pdata in popover.items():
+                prefix = None
+                for key, pfx in period_map.items():
+                    if key in period_name:
+                        prefix = pfx
+                        break
+                if not prefix:
                     continue
-                p = popover[period]
-                for cn_key, en_key in [("总量", "total"), ("已使用", "used")]:
-                    val = p.get(cn_key, "").replace(",", "")
-                    if val.isdigit():
-                        data[f"{prefix}_{en_key}"] = int(val)
-                rate = p.get("使用率", "").replace("%", "")
-                if rate.isdigit():
-                    data[f"{prefix}_used_pct"] = int(rate)
-                if p.get("refresh"):
-                    data[f"{prefix}_refresh"] = p["refresh"]
+                for label, role in stat_keys.items():
+                    val = pdata.get(label, "").replace(",", "").replace("%", "")
+                    if not val or not val.isdigit():
+                        continue
+                    if role == "total":
+                        data[f"{prefix}_total"] = int(val)
+                    elif role == "used":
+                        data[f"{prefix}_used"] = int(val)
+                    elif role == "usage_rate":
+                        data[f"{prefix}_used_pct"] = int(val)
+                if pdata.get("refresh"):
+                    data[f"{prefix}_refresh"] = pdata["refresh"]
         except:
             pass
     return {"status": "success", "method": "cdp_parallel", "data": data, "last_checked": now_iso()}
