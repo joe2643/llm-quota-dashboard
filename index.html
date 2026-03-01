@@ -561,6 +561,47 @@
 
     .provider-card { opacity: 0; }
     .provider-card.loaded { animation: fadeIn 500ms ease-out forwards; }
+
+    /* ═══ CARD STATUS BORDERS ═══ */
+    .provider-card.card-warning {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(245,158,11,0.4);
+    }
+    .provider-card.card-critical {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.5);
+      animation: pulse-critical 2s ease-in-out infinite;
+    }
+    .provider-card.card-error {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.3);
+    }
+    .provider-card.card-login {
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(108,99,255,0.3);
+    }
+
+    @keyframes pulse-critical {
+      0%, 100% { box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.5); }
+      50% { box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light), inset 0 0 0 3px rgba(239,68,68,0.8); }
+    }
+
+    /* ═══ ALERT BANNER ═══ */
+    .alert-banner {
+      background: var(--bg);
+      border-radius: var(--radius-btn);
+      padding: 14px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .alert-banner.warning {
+      color: #B45309;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), inset 0 0 0 2px rgba(245,158,11,0.3);
+    }
+    .alert-banner.critical {
+      color: #DC2626;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light), inset 0 0 0 2px rgba(239,68,68,0.4);
+    }
   </style>
 </head>
 <body>
@@ -593,6 +634,7 @@
   <!-- PROVIDERS -->
   <section class="providers-section">
     <div class="container">
+      <div id="alertBanner"></div>
       <div class="section-title">
         <span>Providers</span>
       </div>
@@ -630,8 +672,48 @@
     // ═══ RENDER ═══
     function render() {
       renderSummary();
+      renderAlerts();
       renderProviders();
       renderLastUpdated();
+    }
+
+    function renderAlerts() {
+      const alerts = [];
+      for (const [key, config] of Object.entries(providerMeta)) {
+        if (!config.enabled) continue;
+        const d = quotaData[key];
+        if (!d || d.status !== 'success') continue;
+        const sd = d.data || {};
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct'];
+        for (const f of pctFields) {
+          if (sd[f] != null) {
+            const rem = 100 - sd[f];
+            if (rem < 10) alerts.push({ provider: config.name || key, field: f.replace('_used_pct','').replace('_',' '), remaining: rem, level: 'critical' });
+            else if (rem < 20) alerts.push({ provider: config.name || key, field: f.replace('_used_pct','').replace('_',' '), remaining: rem, level: 'warning' });
+          }
+        }
+      }
+
+      const el = document.getElementById('alertBanner');
+      if (!alerts.length) { el.innerHTML = ''; return; }
+
+      const critical = alerts.filter(a => a.level === 'critical');
+      const warning = alerts.filter(a => a.level === 'warning');
+
+      let html = '';
+      if (critical.length) {
+        html += `<div class="alert-banner critical neu-inset-sm">
+          <span style="font-size: 20px">🚨</span>
+          <span>${critical.map(a => `<b>${a.provider}</b> ${a.field}: ${a.remaining}% left`).join(' · ')}</span>
+        </div>`;
+      }
+      if (warning.length) {
+        html += `<div class="alert-banner warning neu-inset-sm">
+          <span style="font-size: 20px">⚠️</span>
+          <span>${warning.map(a => `<b>${a.provider}</b> ${a.field}: ${a.remaining}% left`).join(' · ')}</span>
+        </div>`;
+      }
+      el.innerHTML = html;
     }
 
     function renderLastUpdated() {
@@ -864,8 +946,20 @@
         `;
       }
 
+      // Determine card status class
+      let cardClass = '';
+      if (status === 'need_login') cardClass = 'card-login';
+      else if (status !== 'success') cardClass = 'card-error';
+      else {
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct','weekly_quota_used_pct','monthly_used_pct','rate_limit_used_pct'];
+        const remaining = pctFields.map(f => d[f] != null ? 100 - d[f] : null).filter(v => v !== null);
+        const minRemaining = remaining.length ? Math.min(...remaining) : 100;
+        if (minRemaining < 10) cardClass = 'card-critical';
+        else if (minRemaining < 20) cardClass = 'card-warning';
+      }
+
       return `
-        <div class="provider-card neu-extruded">
+        <div class="provider-card neu-extruded ${cardClass}">
           <div class="provider-header">
             <div class="provider-name">
               <div class="provider-emoji-well neu-inset-deep">${emoji}</div>
@@ -1044,7 +1138,26 @@
     });
 
     // ═══ START ═══
-    init();
+    init().then(() => {
+      // Show toast if any provider is low
+      const lowProviders = [];
+      for (const [key, config] of Object.entries(providerMeta)) {
+        if (!config.enabled) continue;
+        const d = quotaData[key];
+        if (!d || d.status !== 'success') continue;
+        const sd = d.data || {};
+        const pctFields = ['session_used_pct','weekly_used_pct','weekly_all_used_pct','5h_quota_used_pct','5h_used_pct','extra_used_pct','current_used_pct'];
+        for (const f of pctFields) {
+          if (sd[f] != null && (100 - sd[f]) < 15) {
+            lowProviders.push(config.name || key);
+            break;
+          }
+        }
+      }
+      if (lowProviders.length) {
+        showToast(`⚠️ Low quota: ${lowProviders.join(', ')}`, 'error');
+      }
+    });
     startAutoPoll();
   </script>
 </body>
