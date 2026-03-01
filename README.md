@@ -20,8 +20,11 @@ cd llm-quota-dashboard
 # Install deps
 pip install flask websocket-client
 
-# Start Chrome with CDP (or use OpenClaw browser)
+# Option A: Start Chrome with CDP manually
 # chrome --remote-debugging-port=18800
+#
+# Option B: If you have OpenClaw, the scraper auto-starts the browser:
+# openclaw browser start
 
 # Start dashboard (auto-refreshes every 30min)
 python3 web/server.py        # http://localhost:8502
@@ -91,6 +94,8 @@ If your dashboard renders in a different language, you'll need to update the reg
 | MiniMax | ❌ Requires full browser session |
 
 **Recommendation**: Run Chrome with `--remote-debugging-port=18800` for full provider support. Headless is a fallback for when no visible Chrome is available.
+
+- **OpenClaw browser fallback**: If no Chrome is running on port 18800, the scraper will automatically try `openclaw browser start` to launch a CDP-enabled browser. This works if you have [OpenClaw](https://github.com/openclaw/openclaw) installed. Login sessions are stored in OpenClaw's browser profile (`~/.openclaw/browser/`), so you only need to log in once.
 
 - **Multiple Chrome instances**: Only one Chrome can bind to port 18800. Close other CDP-enabled instances before starting.
 
