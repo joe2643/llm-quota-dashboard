@@ -13,7 +13,10 @@ import time
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
-from flask import Flask, jsonify, send_from_directory, send_file
+import sys
+sys.path.insert(0, os.path.dirname(__file__))
+from history import record_snapshot, get_history, cleanup
+from flask import Flask, jsonify, send_from_directory, send_file, request
 
 PROJECT_DIR = Path(__file__).parent.parent
 DATA_DIR = PROJECT_DIR / "data"
@@ -127,6 +130,14 @@ def _run_scraper():
         if result.returncode == 0:
             _last_scrape_ok = time.time()
             log.info("Scraper OK")
+            # Record snapshot to history
+            try:
+                if QUOTA_FILE.exists():
+                    qdata = json.loads(QUOTA_FILE.read_text(encoding="utf-8"))
+                    n = record_snapshot(qdata)
+                    log.info(f"Recorded {n} history points")
+            except Exception as e:
+                log.warning(f"History record failed: {e}")
             return True
         else:
             log.warning(f"Scraper failed (rc={result.returncode}): {result.stderr[:200]}")
@@ -147,6 +158,7 @@ def _background_loop():
     while True:
         try:
             _run_scraper()
+            cleanup(30)  # keep 30 days
         except Exception as e:
             log.error(f"Background loop error: {e}")
         time.sleep(REFRESH_INTERVAL)
@@ -205,6 +217,16 @@ def refresh():
             data = json.loads(QUOTA_FILE.read_text(encoding="utf-8"))
         return jsonify({"status": "ok", "data": data})
     return jsonify({"status": "error", "error": "Scraper failed"}), 500
+
+
+@app.route("/api/history/<provider>")
+def api_history(provider):
+    """Get history for a provider."""
+    field = request.args.get('field')
+    hours = int(request.args.get('hours', 24))
+    hours = min(hours, 720)  # Max 30 days
+    data = get_history(provider, field, hours)
+    return jsonify(data)
 
 
 @app.route("/api/refresh/<provider>", methods=["POST"])

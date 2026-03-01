@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     /* ═══ RESET & BASE ═══ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -461,6 +463,31 @@
       word-break: break-all;
     }
 
+    /* ═══ CHART MODAL ═══ */
+    .chart-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+      z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .chart-modal.active { display: flex; }
+    .chart-modal-content {
+      background: var(--bg); border-radius: var(--radius-card);
+      box-shadow: 9px 9px 16px var(--shadow-dark), -9px -9px 16px var(--shadow-light);
+      padding: 24px; max-width: 700px; width: 100%; max-height: 80vh; overflow-y: auto;
+    }
+    .chart-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chart-modal-header h3 { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; }
+    .chart-time-btns { display: flex; gap: 6px; margin-bottom: 12px; }
+    .chart-time-btns button {
+      padding: 6px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+      background: var(--bg); color: var(--text);
+      box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    }
+    .chart-time-btns button.active {
+      box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+      color: var(--accent);
+    }
+
     /* ═══ MODAL (Screenshot Lightbox) ═══ */
     .modal-overlay {
       position: fixed;
@@ -634,6 +661,23 @@
   <!-- PROVIDERS -->
   <section class="providers-section">
     <div class="container">
+      <!-- Chart Modal -->
+      <div class="chart-modal" id="chartModal" onclick="if(event.target===this)closeChart()">
+        <div class="chart-modal-content">
+          <div class="chart-modal-header">
+            <h3 id="chartTitle">Usage History</h3>
+            <button class="btn neu-extruded-sm" onclick="closeChart()" style="padding:6px 12px;border-radius:10px;font-size:14px;">✕</button>
+          </div>
+          <div class="chart-time-btns" id="chartTimeBtns">
+            <button onclick="loadChart(currentChartProvider,6)" data-h="6">6h</button>
+            <button onclick="loadChart(currentChartProvider,24)" data-h="24" class="active">24h</button>
+            <button onclick="loadChart(currentChartProvider,168)" data-h="168">7d</button>
+          </div>
+          <canvas id="historyChart" height="250"></canvas>
+          <div id="chartEmpty" style="display:none;text-align:center;padding:40px;color:var(--muted);">No history data yet. Charts populate after a few scraper runs.</div>
+        </div>
+      </div>
+
       <div id="alertBanner"></div>
       <div class="section-title">
         <span>Providers</span>
@@ -980,7 +1024,10 @@
           ${bodyHtml}
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
             ${data.last_checked ? `<span style="font-size: 11px; color: var(--muted);">🕐 ${formatTimeAgo(data.last_checked)}</span>` : '<span></span>'}
-            <button class="btn neu-extruded-sm" style="padding: 6px 12px; min-height: 32px; font-size: 11px; border-radius: 10px;" onclick="refreshProvider('${key}', this)" title="Refresh ${escHtml(name)}">⟳</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn neu-extruded-sm" style="padding:6px 12px;min-height:32px;font-size:11px;border-radius:10px;" onclick="openChart('${key}','${escHtml(name)}')" title="History">📈</button>
+              <button class="btn neu-extruded-sm" style="padding:6px 12px;min-height:32px;font-size:11px;border-radius:10px;" onclick="refreshProvider('${key}', this)" title="Refresh">⟳</button>
+            </div>
           </div>
         </div>
       `;
@@ -1089,6 +1136,87 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ═══ CHART ═══
+    let currentChartProvider = null;
+    let historyChart = null;
+    const chartColors = ['#6C63FF','#00D9A6','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'];
+
+    function openChart(provider, name) {
+      currentChartProvider = provider;
+      document.getElementById('chartTitle').textContent = name + ' — Usage History';
+      document.getElementById('chartModal').classList.add('active');
+      loadChart(provider, 24);
+    }
+
+    function closeChart() {
+      document.getElementById('chartModal').classList.remove('active');
+      if (historyChart) { historyChart.destroy(); historyChart = null; }
+    }
+
+    async function loadChart(provider, hours) {
+      // Update active button
+      document.querySelectorAll('#chartTimeBtns button').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.h) === hours);
+      });
+
+      try {
+        const resp = await fetch(`/api/history/${provider}?hours=${hours}`);
+        const data = await resp.json();
+
+        if (!data.length) {
+          document.getElementById('historyChart').style.display = 'none';
+          document.getElementById('chartEmpty').style.display = 'block';
+          if (historyChart) { historyChart.destroy(); historyChart = null; }
+          return;
+        }
+        document.getElementById('historyChart').style.display = 'block';
+        document.getElementById('chartEmpty').style.display = 'none';
+
+        // Group by field
+        const fields = {};
+        for (const d of data) {
+          if (!fields[d.field]) fields[d.field] = [];
+          fields[d.field].push({ x: new Date(d.timestamp), y: d.value });
+        }
+
+        const datasets = Object.entries(fields).map(([field, points], i) => ({
+          label: field.replace('_used_pct', '').replace(/_/g, ' '),
+          data: points,
+          borderColor: chartColors[i % chartColors.length],
+          backgroundColor: chartColors[i % chartColors.length] + '20',
+          fill: true,
+          tension: 0.3,
+          pointRadius: points.length > 50 ? 0 : 3,
+          borderWidth: 2,
+        }));
+
+        if (historyChart) historyChart.destroy();
+        historyChart = new Chart(document.getElementById('historyChart'), {
+          type: 'line',
+          data: { datasets },
+          options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: { type: 'time', time: { tooltipFormat: 'MMM d, HH:mm' },
+                ticks: { color: '#999', maxTicksLimit: 8 }, grid: { display: false } },
+              y: { min: 0, max: 100, ticks: { color: '#999', callback: v => v + '%' },
+                grid: { color: 'rgba(150,150,150,0.1)' } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#999', usePointStyle: true, padding: 16 } },
+              tooltip: { backgroundColor: 'rgba(30,30,30,0.9)', titleColor: '#fff', bodyColor: '#ddd',
+                callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%` } }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Chart load error:', e);
+        document.getElementById('chartEmpty').textContent = 'Error loading history';
+        document.getElementById('chartEmpty').style.display = 'block';
+      }
+    }
 
     // ═══ PER-PROVIDER REFRESH ═══
     async function refreshProvider(key, btn) {
