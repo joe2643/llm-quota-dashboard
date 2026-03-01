@@ -987,8 +987,39 @@
       if (e.key === 'Escape') closeModal();
     });
 
+    // ═══ AUTO-REFRESH ═══
+    const AUTO_POLL_MS = 30000; // 30s
+    let _autoPollTimer = null;
+
+    async function autoPoll() {
+      try {
+        const fresh = await fetchJSON('/api/data', 'data/quota_data.json');
+        if (fresh.last_updated && fresh.last_updated !== quotaData.last_updated) {
+          quotaData = fresh;
+          render();
+        }
+      } catch {}
+    }
+
+    function startAutoPoll() {
+      if (_autoPollTimer) return;
+      _autoPollTimer = setInterval(autoPoll, AUTO_POLL_MS);
+    }
+
+    // Pause polling when tab hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        clearInterval(_autoPollTimer);
+        _autoPollTimer = null;
+      } else {
+        autoPoll(); // immediate check
+        startAutoPoll();
+      }
+    });
+
     // ═══ START ═══
     init();
+    startAutoPoll();
   </script>
 </body>
 </html>
