@@ -861,6 +861,22 @@
 
       let bodyHtml = '';
 
+      // Quota fields definition (shared by success and need_login)
+      const quotaFields = [
+        ['session_used_pct', 'Session', d.session_reset],
+        ['5h_quota_used_pct', '5h Quota', d['5h_refresh'] || null],
+        ['5h_used_pct', '5h Quota', d['5h_refresh'] || null],
+        ['weekly_used_pct', 'Weekly', d.weekly_reset || d.weekly_refresh || null],
+        ['weekly_all_used_pct', 'Weekly (all)', d.weekly_all_reset],
+        ['weekly_sonnet_used_pct', 'Sonnet', d.weekly_sonnet_reset],
+        ['weekly_quota_used_pct', 'Weekly', d.weekly_reset],
+        ['rate_limit_used_pct', 'Rate Limit', null],
+        ['monthly_search_used_pct', 'Search', d.monthly_search_reset],
+        ['monthly_used_pct', 'Monthly', d.monthly_refresh || null],
+        ['current_used_pct', 'Current', d.reset_in],
+        ['extra_used_pct', 'Extra', d.extra_reset],
+      ];
+
       if (status === 'success') {
         // Plan name
         if (d.plan) {
@@ -868,22 +884,6 @@
         } else if (d.tier) {
           bodyHtml += `<div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">🎵 ${escHtml(d.tier)}${d.model ? ' · ' + d.model : ''}</div>`;
         }
-        
-        // Quota bars — render all percentage fields
-        const quotaFields = [
-          ['session_used_pct', 'Session', d.session_reset],
-          ['5h_quota_used_pct', '5h Quota', d['5h_refresh'] || null],
-          ['5h_used_pct', '5h Quota', d['5h_refresh'] || null],
-          ['weekly_used_pct', 'Weekly', d.weekly_reset || d.weekly_refresh || null],
-          ['weekly_all_used_pct', 'Weekly (all)', d.weekly_all_reset],
-          ['weekly_sonnet_used_pct', 'Sonnet', d.weekly_sonnet_reset],
-          ['weekly_quota_used_pct', 'Weekly', d.weekly_reset],
-          ['rate_limit_used_pct', 'Rate Limit', null],
-          ['monthly_search_used_pct', 'Search', d.monthly_search_reset],
-          ['monthly_used_pct', 'Monthly', d.monthly_refresh || null],
-          ['current_used_pct', 'Current', d.reset_in],
-          ['extra_used_pct', 'Extra', d.extra_reset],
-        ];
         
         let hasBar = false;
         for (const [field, label, resetInfo] of quotaFields) {
