@@ -4,3 +4,7 @@ __pycache__/
 output/
 screenshots/
 ~/.llm-quota-browser/
+.venv/
+*.db
+*.log
+__pycache__/

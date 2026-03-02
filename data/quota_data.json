@@ -1,63 +1,94 @@
 {
   "zai": {
-    "name": "Z.AI",
-    "status": "ok",
-    "balance": "$12.50",
-    "cash": "$2.50",
-    "credits": "$10.00",
-    "5h_total": "50",
-    "5h_used": "3",
-    "5h_usage": "6%",
-    "weekly_total": "200",
-    "weekly_used": "18",
-    "weekly_usage": "9%",
-    "scraped_at": "2026-03-01T03:00:00Z"
+    "status": "success",
+    "method": "cdp_parallel",
+    "data": {
+      "provider": "zai",
+      "5h_quota_used_pct": 1,
+      "weekly_quota_used_pct": 1,
+      "weekly_reset": "2026-03-07 13:59",
+      "monthly_search_used_pct": 5,
+      "monthly_search_reset": "2026-03-21 13:59"
+    },
+    "last_checked": "2026-03-02T04:10:21.202495+00:00"
   },
+  "last_updated": "2026-03-02T04:10:33.920677+00:00",
   "dashscope": {
-    "name": "DashScope",
-    "status": "ok",
-    "5h_total": "2,000,000",
-    "5h_used": "156,000",
-    "5h_usage": "7.8%",
-    "weekly_total": "10,000,000",
-    "weekly_used": "890,000",
-    "weekly_usage": "8.9%",
-    "monthly_total": "50,000,000",
-    "monthly_used": "4,200,000",
-    "monthly_usage": "8.4%",
-    "scraped_at": "2026-03-01T03:00:00Z"
-  },
-  "anthropic": {
-    "name": "Anthropic",
-    "status": "ok",
-    "tier": "Build (Tier 1)",
-    "models_rpm": "50 RPM",
-    "opus_input_tpm": "40,000 TPM",
-    "opus_output_tpm": "8,000 TPM",
-    "sonnet_input_tpm": "80,000 TPM",
-    "sonnet_output_tpm": "16,000 TPM",
-    "haiku_input_tpm": "100,000 TPM",
-    "haiku_output_tpm": "20,000 TPM",
-    "monthly_spend": "$4.82",
-    "monthly_limit": "$10.00",
-    "usage_pct": "48.2%",
-    "scraped_at": "2026-03-01T03:00:00Z"
+    "status": "success",
+    "method": "cdp_parallel",
+    "data": {
+      "provider": "dashscope",
+      "plan": "Coding Plan Pro",
+      "price_usd_month": 50,
+      "remaining_days": 25,
+      "5h_used_pct": 11,
+      "start_time": "2026-02-27 11:13",
+      "end_time": "2026-03-28 00:00",
+      "5h_refresh": "2026-03-02 12:10:28刷新",
+      "5h_total": 6000,
+      "5h_used": 633,
+      "weekly_refresh": "2026-03-09 00:00:00刷新",
+      "weekly_total": 45000,
+      "weekly_used": 2198,
+      "weekly_used_pct": 5,
+      "monthly_refresh": "2026-03-28 00:00:00刷新",
+      "monthly_total": 90000,
+      "monthly_used": 6883,
+      "monthly_used_pct": 8
+    },
+    "last_checked": "2026-03-02T04:10:33.918670+00:00"
   },
   "kimi": {
-    "name": "Kimi",
-    "status": "ok",
-    "kimi_free_used": "15%",
-    "moonshot_free_used": "8%",
-    "kimi_paid_used": "-",
-    "moonshot_paid_used": "-",
-    "scraped_at": "2026-03-01T03:00:00Z"
+    "status": "success",
+    "method": "cdp_parallel",
+    "data": {
+      "provider": "kimi",
+      "tier": "Allegretto",
+      "model": "K2.5",
+      "weekly_used_pct": 52,
+      "weekly_reset": "21 hours",
+      "rate_limit_used_pct": 0,
+      "rate_reset": "3 hours"
+    },
+    "last_checked": "2026-03-02T04:10:22.264052+00:00"
   },
   "minimax": {
-    "name": "MiniMax",
-    "status": "ok",
-    "balance": "¥88.00",
-    "free_quota": "¥50.00",
-    "total_usage": "¥12.30",
-    "scraped_at": "2026-03-01T03:00:00Z"
+    "status": "success",
+    "method": "cdp_parallel",
+    "data": {
+      "provider": "minimax",
+      "plan": "Plus – High-Speed",
+      "prompts_per_window": 300,
+      "window_hours": 5,
+      "valid_until": "03/27/2026",
+      "current_used_pct": 0,
+      "current_window": "00:00-05:00 UTC",
+      "reset_in": "49 min"
+    },
+    "last_checked": "2026-03-02T04:10:21.115363+00:00"
+  },
+  "anthropic": {
+    "status": "success",
+    "method": "cdp_parallel",
+    "data": {
+      "provider": "anthropic",
+      "plan": "Max plan",
+      "session_reset": "4 hr 49 min",
+      "session_used_pct": 2,
+      "weekly_all_reset": "Fri 11:59 AM",
+      "weekly_all_used_pct": 82,
+      "weekly_sonnet_reset": "Fri 11:59 AM",
+      "weekly_sonnet_used_pct": 3,
+      "extra_spent_usd": 0.0,
+      "extra_reset": "Apr 1",
+      "extra_used_pct": 0,
+      "monthly_limit_usd": 50.0,
+      "balance_usd": 1.38
+    },
+    "last_checked": "2026-03-02T04:10:27.527672+00:00"
+  },
+  "siliconflow": {
+    "status": "need_login",
+    "message": "Not logged in to SiliconFlow"
   }
 }
